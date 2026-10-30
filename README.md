@@ -1,6 +1,6 @@
 # The Daily Brief — Android
 
-A stand-alone Android version of **The Morning Brief**: local weather and a compact local-news edition, built directly on the phone with no Morning Brief account or hosted backend required.
+A stand-alone Android local-news brief that favors nonprofit and public-service journalism, builds a compact edition on-device, and requires no Daily Brief account or hosted backend.
 
 ## Download
 
@@ -8,21 +8,19 @@ For testers and normal users, use the **Releases** page rather than downloading 
 
 > Android may warn that the APK came from outside Google Play. That is expected for a directly distributed build.
 
-## Current version: v0.3.0
+## Current version: v0.4.0
 
-- Added **Appearance: System / Light / Dark**.
-- Reworked edition selection to be **nonprofit/public-service first**.
-- Preferred sources can contribute up to four stories each before commercial/direct or Google fallbacks are used.
-- INN / Find Your News sources get the next-highest priority.
-- Google News is a **fill-the-gaps fallback**.
-- West Michigan installs automatically get direct-feed fast paths for:
-  - Bridge Michigan
-  - The Rapidian
-  - Ottawa News Network
+- Replaced the fixed 10-story edition with an **editorial quality threshold**.
+- Added a 25-story emergency cap only as a safety valve.
+- Added **near-duplicate clustering** so multiple outlets covering the same event do not waste slots.
+- Strongly favors preferred nonprofit/community sources, then other INN sources, then useful direct local reporting, with Google/commercial coverage used as gap-fillers.
+- Adds diminishing-return penalties when one publisher or topic starts dominating the issue.
+- Scores stories for locality, freshness, source quality, and public-interest value.
+- Organizes the edition as **Top Stories / Local / Michigan / More to Know**.
+- Adds a real **build progress bar** and status messages while sources are checked and stories are filtered.
+- Improves dark-mode Settings contrast with clearer panels, headings, controls, and selected states.
+- Keeps **Appearance: System / Light / Dark**.
 - Existing installs migrate automatically; users do not have to wipe setup data or re-enter their ZIP code.
-- Preferred direct feeds self-repair; if a publisher feed fails repeatedly, the app falls back to a source-filtered Google News feed for **that same publisher**.
-- Editions are capped at **10 stories** and balanced within each source tier.
-- Story cache remembers source type so quiet mornings retain the nonprofit preference.
 
 ## How source selection works
 
@@ -37,12 +35,9 @@ For testers and normal users, use the **Releases** page rather than downloading 
 
 ### Every morning
 
-The app gathers recent stories from enabled sources, filters unwanted categories, deduplicates them, then fills the edition in this order:
+The app gathers a larger candidate pool, filters unwanted categories, clusters duplicate/same-event coverage, scores the remaining stories, applies source/topic repetition penalties, and keeps stories that still clear the editorial quality bar.
 
-1. Preferred nonprofit/community sources
-2. Other INN nonprofit sources
-3. Other direct publisher feeds
-4. Google News / commercial fallback
+Preferred nonprofit/community reporting gets the strongest source bonus. Commercial and Google-sourced stories are not guaranteed slots; they are used when they add genuinely useful coverage.
 
 Sports, obituaries, opinion/letters, and recipes are excluded by default and can be enabled in Settings.
 
@@ -63,7 +58,7 @@ No Daily Brief server is required.
 
 ### Android Studio
 
-Open the repository as an Android Studio project and build the debug APK.
+Open the project and build the debug APK.
 
 Output:
 
@@ -71,7 +66,7 @@ Output:
 
 ### CachyOS / terminal
 
-The included Fish script uses an installed or cached Gradle distribution:
+The included Fish script builds and installs locally:
 
 `fish build-and-install.fish`
 
@@ -79,7 +74,7 @@ If ADB sees a connected phone, the script installs the resulting APK. Otherwise 
 
 ### GitHub Actions
 
-`.github/workflows/build-apk.yml` builds a debug APK as a workflow artifact for development/testing.
+`.github/workflows/build-apk.yml` builds the newest source bundle under `source/` and uploads a debug APK as a workflow artifact.
 
 **Distribution releases should use the same persistent signing identity across versions** so Android can install later releases as updates.
 
