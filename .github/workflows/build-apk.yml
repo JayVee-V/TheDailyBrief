@@ -5,7 +5,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'source/MorningBriefAndroid-v*.zip'
+      - 'source/v0.4.0.b64/**'
       - '.github/workflows/build-apk.yml'
 
 jobs:
@@ -35,11 +35,14 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract current source bundle
+      - name: Reconstruct and verify v0.4.0 source
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="$(ls -1 source/MorningBriefAndroid-v*.zip | sort -V | tail -1)"
+          ZIP="/tmp/MorningBriefAndroid-v0.4.0.zip"
+          cat source/v0.4.0.b64/part-*.txt | base64 -d > "$ZIP"
+          echo "aa5cd8db0d9a2f2e153d1fe67cd7555619e6e3e01680f84abde263f13f2e8111  $ZIP" | sha256sum -c -
+          unzip -t "$ZIP"
           rm -rf buildsrc
           mkdir buildsrc
           unzip -q "$ZIP" -d buildsrc
@@ -50,5 +53,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: TheDailyBrief-debug-apk
+          name: TheDailyBrief-v0.4.0-debug-apk
           path: ${{ env.APP_DIR }}/app/build/outputs/apk/debug/app-debug.apk
