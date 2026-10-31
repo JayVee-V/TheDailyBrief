@@ -5,7 +5,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - '.release/v0.4.0'
+      - '.release/v0.4.1'
 
 permissions:
   contents: write
@@ -16,8 +16,8 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-      VERSION: "0.4.0"
-      TAG: "v0.4.0"
+      VERSION: "0.4.1"
+      TAG: "v0.4.1"
 
     steps:
       - uses: actions/checkout@v5
@@ -39,7 +39,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Reconstruct and verify source
+      - name: Reconstruct v0.4.0 source and apply v0.4.1 patch
         shell: bash
         run: |
           set -euo pipefail
@@ -49,7 +49,10 @@ jobs:
           rm -rf buildsrc
           mkdir buildsrc
           unzip -q "$ZIP" -d buildsrc
-          echo "APP_DIR=$(find buildsrc -mindepth 1 -maxdepth 1 -type d | head -1)" >> "$GITHUB_ENV"
+          APP_DIR="$(find buildsrc -mindepth 1 -maxdepth 1 -type d | head -1)"
+          patch -d "$APP_DIR" -p1 < source/patches/v0.4.1.patch
+          grep -q 'versionName = "0.4.1"' "$APP_DIR/app/build.gradle.kts"
+          echo "APP_DIR=$APP_DIR" >> "$GITHUB_ENV"
 
       - name: Restore existing Android signing key
         shell: bash
@@ -78,8 +81,13 @@ jobs:
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
 
           "$ZIPALIGN" -f -v 4 "$UNSIGNED" "$ALIGNED"
-
-          "$APKSIGNER" sign             --ks "$RUNNER_TEMP/debug.keystore"             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --out "$SIGNED"             "$ALIGNED"
+          "$APKSIGNER" sign \
+            --ks "$RUNNER_TEMP/debug.keystore" \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out "$SIGNED" \
+            "$ALIGNED"
 
           "$APKSIGNER" verify --verbose --print-certs "$SIGNED"
           echo "SIGNED_APK=$SIGNED" >> "$GITHUB_ENV"
@@ -95,4 +103,7 @@ jobs:
             exit 1
           fi
 
-          gh release create "$TAG" "$SIGNED_APK#TheDailyBrief-v$VERSION.apk"             --target "$GITHUB_SHA"             --title "The Daily Brief v$VERSION"             --notes "v0.4.0 replaces the fixed ten-story edition with editorial scoring and a quality cutoff, adds duplicate clustering and source/topic diversity penalties, adds build progress feedback, and improves dark-mode Settings contrast."
+          gh release create "$TAG" "$SIGNED_APK#TheDailyBrief-v$VERSION.apk" \
+            --target "$GITHUB_SHA" \
+            --title "The Daily Brief v$VERSION" \
+            --notes "v0.4.1 fixes an overly aggressive story selector. Diversity penalties now change story order without disqualifying otherwise worthwhile stories, and same-event clustering no longer collapses similar stories from the same publisher unless their title or URL is actually identical."
