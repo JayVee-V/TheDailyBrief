@@ -8,13 +8,13 @@ For testers and normal users, use the **Releases** page rather than downloading 
 
 > Android may warn that the APK came from outside Google Play. That is expected for a directly distributed build.
 
-## Current version: v0.4.0
+## Current version: v0.4.1
 
 - Replaced the fixed 10-story edition with an **editorial quality threshold**.
 - Added a 25-story emergency cap only as a safety valve.
-- Added **near-duplicate clustering** so multiple outlets covering the same event do not waste slots.
+- Added **near-duplicate clustering** so multiple outlets covering the same event do not waste slots. Same-publisher stories are only deduplicated when their title or URL actually matches.
 - Strongly favors preferred nonprofit/community sources, then other INN sources, then useful direct local reporting, with Google/commercial coverage used as gap-fillers.
-- Adds diminishing-return penalties when one publisher or topic starts dominating the issue.
+- Adds diminishing-return penalties when one publisher or topic starts dominating the issue; these penalties affect ordering, not whether an otherwise qualified story is included.
 - Scores stories for locality, freshness, source quality, and public-interest value.
 - Organizes the edition as **Top Stories / Local / Michigan / More to Know**.
 - Adds a real **build progress bar** and status messages while sources are checked and stories are filtered.
@@ -35,7 +35,7 @@ For testers and normal users, use the **Releases** page rather than downloading 
 
 ### Every morning
 
-The app gathers a larger candidate pool, filters unwanted categories, clusters duplicate/same-event coverage, scores the remaining stories, applies source/topic repetition penalties, and keeps stories that still clear the editorial quality bar.
+The app gathers a larger candidate pool, filters unwanted categories, clusters duplicate/same-event coverage, scores each story for intrinsic editorial quality, keeps stories that clear that quality bar, and then uses source/topic repetition penalties only to order the qualified stories more diversely.
 
 Preferred nonprofit/community reporting gets the strongest source bonus. Commercial and Google-sourced stories are not guaranteed slots; they are used when they add genuinely useful coverage.
 
