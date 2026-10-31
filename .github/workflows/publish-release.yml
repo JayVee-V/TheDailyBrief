@@ -2,6 +2,10 @@ name: Publish signed release
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.release/v0.4.0'
 
 permissions:
   contents: write
