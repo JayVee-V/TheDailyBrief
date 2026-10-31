@@ -1,0 +1,64 @@
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -10,8 +10,8 @@
+         applicationId = "org.morningbrief.app"
+         minSdk = 26
+         targetSdk = 35
+-        versionCode = 4
+-        versionName = "0.4.0"
++        versionCode = 5
++        versionName = "0.4.1"
+     }
+ 
+     buildTypes {
+--- a/app/src/main/java/org/morningbrief/app/EditorialEngine.java
++++ b/app/src/main/java/org/morningbrief/app/EditorialEngine.java
+@@ -45,7 +45,9 @@
+         for (Scored candidate : scored) {
+             boolean duplicate = false;
+             for (Scored rep : clustered) {
+-                if (sameEvent(candidate.story, rep.story)) {
++                boolean sameSource = sourceKey(candidate.story).equals(sourceKey(rep.story));
++                if ((sameSource && exactDuplicate(candidate.story, rep.story))
++                        || (!sameSource && sameEvent(candidate.story, rep.story))) {
+                     duplicate = true;
+                     break;
+                 }
+@@ -56,7 +58,13 @@
+         List<Story> out = new ArrayList<>();
+         Map<String, Integer> sourceCounts = new HashMap<>();
+         Map<String, Integer> topicCounts = new HashMap<>();
+-        Set<Scored> remaining = new LinkedHashSet<>(clustered);
++        Set<Scored> remaining = new LinkedHashSet<>();
++        for (Scored x : clustered) {
++            // Intrinsic editorial quality determines whether a story belongs.
++            // Source/topic diversity penalties only affect ordering; they must
++            // never make an otherwise worthwhile story disappear.
++            if (x.base >= QUALITY_FLOOR) remaining.add(x);
++        }
+ 
+         while (!remaining.isEmpty() && out.size() < HARD_CAP) {
+             Scored best = null;
+@@ -70,7 +78,7 @@
+                     best = x;
+                 }
+             }
+-            if (best == null || bestAdjusted < QUALITY_FLOOR) break;
++            if (best == null) break;
+ 
+             remaining.remove(best);
+             Story chosen = best.story;
+@@ -207,6 +215,13 @@
+         };
+     }
+ 
++    private static boolean exactDuplicate(Story a, Story b) {
++        String au = a.url == null ? "" : a.url.trim();
++        String bu = b.url == null ? "" : b.url.trim();
++        if (!au.isEmpty() && au.equals(bu)) return true;
++        return normalize(a.title).equals(normalize(b.title));
++    }
++
+     private static boolean sameEvent(Story a, Story b) {
+         String an = normalize(a.title);
+         String bn = normalize(b.title);
