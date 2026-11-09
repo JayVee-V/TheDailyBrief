@@ -25,7 +25,7 @@
          for (Story s : gathered) {
              if (!StoryFilter.keep(context, s)) continue;
              if (s.publishedEpoch > 0 && now - s.publishedEpoch > maxAge) continue;
-@@ -79,22 +84,12 @@
+@@ -79,29 +84,20 @@
              s.cached = false;
              String key = normalize(s.title);
              if (key.isEmpty() || !exactSeen.add(key)) continue;
@@ -70,7 +70,7 @@
 +import java.util.Set;
  
  final class SettingsStore {
-@@ -217,6 +219,72 @@
+@@ -217,6 +219,71 @@
          return out;
      }
  
