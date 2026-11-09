@@ -1,0 +1,166 @@
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -10,8 +10,8 @@
+         applicationId = "org.morningbrief.app"
+         minSdk = 26
+         targetSdk = 35
+-        versionCode = 5
+-        versionName = "0.4.1"
++        versionCode = 6
++        versionName = "0.4.2"
+     }
+ 
+     buildTypes {
+--- a/app/src/main/java/org/morningbrief/app/EditionEngine.java
++++ b/app/src/main/java/org/morningbrief/app/EditionEngine.java
+@@ -72,6 +72,11 @@
+         List<Story> poolStories = new ArrayList<>();
+         Set<String> exactSeen = new HashSet<>();
+ 
++        // A newspaper does not reprint yesterday's story. Seed the permanent
++        // shown-history from the last v0.4.1 cache, then exclude anything that
++        // has already appeared in a completed edition.
++        SettingsStore.rememberShownStories(context, SettingsStore.loadStoryCache(context));
++        Set<String> shownStories = SettingsStore.loadShownStoryKeys(context);
+         for (Story s : gathered) {
+             if (!StoryFilter.keep(context, s)) continue;
+             if (s.publishedEpoch > 0 && now - s.publishedEpoch > maxAge) continue;
+@@ -79,22 +84,12 @@
+             s.cached = false;
+             String key = normalize(s.title);
+             if (key.isEmpty() || !exactSeen.add(key)) continue;
++            if (SettingsStore.wasStoryShown(shownStories, s)) continue;
+             poolStories.add(s);
+         }
+ 
+-        // Keep recent prior stories available as low-priority carry-forward material.
+-        // They only survive if they still clear the same editorial quality threshold.
+-        for (Story old : SettingsStore.loadStoryCache(context)) {
+-            if (!StoryFilter.keep(context, old)) continue;
+-            if (old.publishedEpoch > 0 && now - old.publishedEpoch > maxAge) continue;
+-            if (old.sourceMode == null || old.sourceMode.trim().isEmpty()) old.sourceMode = inferMode(old.source, sources);
+-            old.cached = true;
+-            String key = normalize(old.title);
+-            if (key.isEmpty() || !exactSeen.add(key)) continue;
+-            poolStories.add(old);
+-        }
+-
+         report(listener, "Comparing coverage and removing duplicates…", 76);
+         List<Story> selected = EditorialEngine.select(loc, poolStories, now);
+         report(listener, "Choosing the strongest mix…", 89);
+ 
+-        if (!selected.isEmpty()) SettingsStore.saveStoryCache(context, selected);
+-
+         report(listener, "Building your Daily Brief…", 96);
+         String html = EditionBuilder.build(loc, weather, selected, weatherFresh, now, SettingsStore.theme(context));
+         SettingsStore.writeCachedEdition(context, html);
++        if (!selected.isEmpty()) {
++            SettingsStore.saveStoryCache(context, selected);
++            SettingsStore.rememberShownStories(context, selected);
++        }
+         SettingsStore.setLastRefresh(context, now);
+         report(listener, "Edition ready", 100);
+--- a/app/src/main/java/org/morningbrief/app/SettingsStore.java
++++ b/app/src/main/java/org/morningbrief/app/SettingsStore.java
+@@ -14,6 +14,8 @@
+ import java.io.ByteArrayOutputStream;
+ import java.util.ArrayList;
++import java.util.HashSet;
+ import java.util.List;
++import java.util.Set;
+ 
+ final class SettingsStore {
+@@ -217,6 +219,72 @@
+         return out;
+     }
+ 
++    private static File storyHistoryFile(Context c) {
++        return new File(c.getFilesDir(), "story_history.txt");
++    }
++
++    static Set<String> loadShownStoryKeys(Context c) {
++        Set<String> out = new HashSet<>();
++        File f = storyHistoryFile(c);
++        if (!f.exists()) return out;
++        try (FileInputStream in = new FileInputStream(f);
++             ByteArrayOutputStream bytes = new ByteArrayOutputStream()) {
++            byte[] buf = new byte[8192];
++            int n;
++            while ((n = in.read(buf)) >= 0) {
++                if (n > 0) bytes.write(buf, 0, n);
++            }
++            String raw = new String(bytes.toByteArray(), StandardCharsets.UTF_8);
++            for (String line : raw.split("\\r?\\n")) {
++                String key = line.trim();
++                if (!key.isEmpty()) out.add(key);
++            }
++        } catch (Exception ignored) {}
++        return out;
++    }
++
++    static boolean wasStoryShown(Set<String> shown, Story story) {
++        String urlKey = storyUrlKey(story == null ? "" : story.url);
++        String titleKey = storyTitleKey(story == null ? "" : story.title);
++        return (!urlKey.isEmpty() && shown.contains(urlKey))
++                || (!titleKey.isEmpty() && shown.contains(titleKey));
++    }
++
++    static void rememberShownStories(Context c, List<Story> stories) {
++        if (stories == null || stories.isEmpty()) return;
++        Set<String> known = loadShownStoryKeys(c);
++        StringBuilder added = new StringBuilder();
++        for (Story story : stories) {
++            String urlKey = storyUrlKey(story == null ? "" : story.url);
++            String titleKey = storyTitleKey(story == null ? "" : story.title);
++            if (!urlKey.isEmpty() && known.add(urlKey)) added.append(urlKey).append('\n');
++            if (!titleKey.isEmpty() && known.add(titleKey)) added.append(titleKey).append('\n');
++        }
++        if (added.length() == 0) return;
++        try (FileOutputStream out = new FileOutputStream(storyHistoryFile(c), true)) {
++            out.write(added.toString().getBytes(StandardCharsets.UTF_8));
++        } catch (Exception ignored) {}
++    }
++
++    private static String storyUrlKey(String value) {
++        if (value == null) return "";
++        String s = value.trim().toLowerCase(java.util.Locale.US);
++        int hash = s.indexOf('#');
++        if (hash >= 0) s = s.substring(0, hash);
++        int query = s.indexOf('?');
++        if (query >= 0) s = s.substring(0, query);
++        while (s.endsWith("/") && s.length() > 1) s = s.substring(0, s.length() - 1);
++        return s.isEmpty() ? "" : "u:" + s;
++    }
++
++    private static String storyTitleKey(String value) {
++        if (value == null) return "";
++        String s = value.toLowerCase(java.util.Locale.US)
++                .replaceAll("[^a-z0-9]+", " ")
++                .trim();
++        return s.isEmpty() ? "" : "t:" + s;
++    }
++
+     static void saveWeatherCache(Context c, WeatherData w) {
+         if (w == null || !w.available) return;
+         try {
+--- a/app/src/main/java/org/morningbrief/app/EditionBuilder.java
++++ b/app/src/main/java/org/morningbrief/app/EditionBuilder.java
+@@ -31,9 +31,9 @@
+          .append(esc(date.toUpperCase(Locale.US))).append("</div></header>");
+ 
+         h.append("<section class='front'>");
+-        h.append(weatherCard(weather, weatherFresh));
+         if (lead != null) h.append(leadCard(lead));
+         else h.append("<section class='card empty'><b>No stories cleared today’s editorial cutoff.</b><p>Weather will still refresh when possible. The app will check again at the next refresh.</p></section>");
++        h.append(weatherCard(weather, weatherFresh));
+         h.append("</section>");
+ 
+         if (!remaining.isEmpty()) {
+@@ -142,7 +142,7 @@
+             .contents{padding:15px 14px 12px;margin-top:15px}.inside-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}.inside-head h2{font-size:1.45rem;margin:0}.inside-head span{font:700 .72rem system-ui,sans-serif;color:var(--muted);letter-spacing:.05em}.section-head{border-bottom:2px solid var(--ink);padding:0 2px 7px;margin-top:22px}.section-head:first-of-type{margin-top:16px}.story-list{display:grid;gap:9px;padding-top:10px}.story{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:13px 12px;border:1px solid var(--rule);border-radius:10px;color:var(--ink);text-decoration:none}.story-source{font-size:.66rem;margin-bottom:5px}.story-title{font-size:1.08rem;font-weight:700;line-height:1.18}.summary{font-size:.91rem;color:var(--summary);margin-top:5px}.read-label{font:700 .7rem system-ui,sans-serif;letter-spacing:.06em;color:var(--muted)}
+             .empty{padding:18px}.empty p{margin-bottom:0}footer{text-align:center;color:var(--muted);font:.72rem system-ui,sans-serif;padding:20px 5px 0}
+-            @media(min-width:720px){.front{grid-template-columns:.9fr 1.4fr;align-items:start}}
++            @media(min-width:720px){.front{grid-template-columns:1.4fr .9fr;align-items:start}}
+             """;
+     }
+ }
