@@ -1,17 +1,35 @@
-name: Inspect v0.4.1 source
+name: Validate v0.4.2
 
 on:
   push:
     branches: [ inspect-v042 ]
     paths:
       - '.github/workflows/inspect-v042.yml'
+      - 'source/patches/v0.4.2.patch'
 
 jobs:
-  inspect:
+  validate:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - uses: actions/checkout@v5
-      - name: Reconstruct source and print targeted excerpts
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Reconstruct, patch, and build v0.4.2
         shell: bash
         run: |
           set -euo pipefail
@@ -22,8 +40,6 @@ jobs:
           unzip -q "$ZIP" -d buildsrc
           APP_DIR="$(find buildsrc -mindepth 1 -maxdepth 1 -type d | head -1)"
           patch -d "$APP_DIR" -p1 < source/patches/v0.4.1.patch
-          STORE="$APP_DIR/app/src/main/java/org/morningbrief/app/SettingsStore.java"
-          echo "===== SettingsStore imports and prefs ====="
-          sed -n '1,90p' "$STORE"
-          echo "===== story cache methods ====="
-          grep -n -A80 -B20 'StoryCache\|story_cache\|saveStory\|loadStory' "$STORE" || true
+          patch -d "$APP_DIR" -p1 < source/patches/v0.4.2.patch
+          grep -q 'versionName = "0.4.2"' "$APP_DIR/app/build.gradle.kts"
+          gradle -p "$APP_DIR" :app:assembleDebug
