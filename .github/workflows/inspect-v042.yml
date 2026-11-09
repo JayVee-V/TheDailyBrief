@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Reconstruct source and print relevant files
+      - name: Reconstruct source and print targeted excerpts
         shell: bash
         run: |
           set -euo pipefail
@@ -22,11 +22,8 @@ jobs:
           unzip -q "$ZIP" -d buildsrc
           APP_DIR="$(find buildsrc -mindepth 1 -maxdepth 1 -type d | head -1)"
           patch -d "$APP_DIR" -p1 < source/patches/v0.4.1.patch
-          echo "===== EditionEngine.java ====="
-          cat "$APP_DIR/app/src/main/java/org/morningbrief/app/EditionEngine.java"
-          echo "===== SettingsStore.java ====="
-          cat "$APP_DIR/app/src/main/java/org/morningbrief/app/SettingsStore.java"
-          echo "===== MainActivity.java ====="
-          cat "$APP_DIR/app/src/main/java/org/morningbrief/app/MainActivity.java"
-          echo "===== EditionBuilder.java ====="
-          cat "$APP_DIR/app/src/main/java/org/morningbrief/app/EditionBuilder.java"
+          STORE="$APP_DIR/app/src/main/java/org/morningbrief/app/SettingsStore.java"
+          echo "===== SettingsStore imports and prefs ====="
+          sed -n '1,90p' "$STORE"
+          echo "===== story cache methods ====="
+          grep -n -A80 -B20 'StoryCache\|story_cache\|saveStory\|loadStory' "$STORE" || true
