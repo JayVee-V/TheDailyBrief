@@ -62,7 +62,7 @@
          report(listener, "Edition ready", 100);
 --- a/app/src/main/java/org/morningbrief/app/SettingsStore.java
 +++ b/app/src/main/java/org/morningbrief/app/SettingsStore.java
-@@ -14,6 +14,8 @@
+@@ -14,5 +14,7 @@
  import java.io.ByteArrayOutputStream;
  import java.util.ArrayList;
 +import java.util.HashSet;
