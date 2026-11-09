@@ -8,8 +8,11 @@ For testers and normal users, use the **Releases** page rather than downloading 
 
 > Android may warn that the APK came from outside Google Play. That is expected for a directly distributed build.
 
-## Current version: v0.4.1
+## Current version: v0.4.2
 
+- **Never reprints a story once it has appeared in an edition.** Printed URL/title fingerprints are kept locally and excluded from future candidate pools.
+- Removed previous-edition carry-forward stories as filler; a thin news day stays thin rather than recycling yesterday's paper.
+- Places the **top story above the weather** so the front page reads like a newspaper first.
 - Replaced the fixed 10-story edition with an **editorial quality threshold**.
 - Added a 25-story emergency cap only as a safety valve.
 - Added **near-duplicate clustering** so multiple outlets covering the same event do not waste slots. Same-publisher stories are only deduplicated when their title or URL actually matches.
@@ -35,7 +38,7 @@ For testers and normal users, use the **Releases** page rather than downloading 
 
 ### Every morning
 
-The app gathers a larger candidate pool, filters unwanted categories, clusters duplicate/same-event coverage, scores each story for intrinsic editorial quality, keeps stories that clear that quality bar, and then uses source/topic repetition penalties only to order the qualified stories more diversely.
+The app gathers a larger candidate pool, filters unwanted categories, removes anything that has already appeared in a prior edition, clusters duplicate/same-event coverage, scores each remaining story for intrinsic editorial quality, keeps stories that clear that quality bar, and then uses source/topic repetition penalties only to order the qualified stories more diversely.
 
 Preferred nonprofit/community reporting gets the strongest source bonus. Commercial and Google-sourced stories are not guaranteed slots; they are used when they add genuinely useful coverage.
 
@@ -43,7 +46,7 @@ Sports, obituaries, opinion/letters, and recipes are excluded by default and can
 
 ## Privacy
 
-ZIP code, source choices, appearance, cached stories, and cached weather are stored locally on the device.
+ZIP code, source choices, appearance, the printed-story history, cached stories, and cached weather are stored locally on the device.
 
 Network requests go directly to:
 
