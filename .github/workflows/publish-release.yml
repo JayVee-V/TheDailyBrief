@@ -5,7 +5,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - '.release/v0.4.1'
+      - '.release/v0.4.2'
 
 permissions:
   contents: write
@@ -16,8 +16,8 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-      VERSION: "0.4.1"
-      TAG: "v0.4.1"
+      VERSION: "0.4.2"
+      TAG: "v0.4.2"
 
     steps:
       - uses: actions/checkout@v5
@@ -39,7 +39,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Reconstruct v0.4.0 source and apply v0.4.1 patch
+      - name: Reconstruct v0.4.0 source and apply v0.4.1 + v0.4.2 patches
         shell: bash
         run: |
           set -euo pipefail
@@ -51,7 +51,8 @@ jobs:
           unzip -q "$ZIP" -d buildsrc
           APP_DIR="$(find buildsrc -mindepth 1 -maxdepth 1 -type d | head -1)"
           patch -d "$APP_DIR" -p1 < source/patches/v0.4.1.patch
-          grep -q 'versionName = "0.4.1"' "$APP_DIR/app/build.gradle.kts"
+          patch -d "$APP_DIR" -p1 < source/patches/v0.4.2.patch
+          grep -q 'versionName = "0.4.2"' "$APP_DIR/app/build.gradle.kts"
           echo "APP_DIR=$APP_DIR" >> "$GITHUB_ENV"
 
       - name: Restore existing Android signing key
@@ -106,4 +107,4 @@ jobs:
           gh release create "$TAG" "$SIGNED_APK#TheDailyBrief-v$VERSION.apk" \
             --target "$GITHUB_SHA" \
             --title "The Daily Brief v$VERSION" \
-            --notes "v0.4.1 fixes an overly aggressive story selector. Diversity penalties now change story order without disqualifying otherwise worthwhile stories, and same-event clustering no longer collapses similar stories from the same publisher unless their title or URL is actually identical."
+            --notes "v0.4.2 makes each edition behave like a newspaper: once a story has appeared, that URL/title is permanently excluded from future editions. Previous-edition carry-forward stories are no longer used as filler. The top story now appears above the weather on the front page, with desktop proportions adjusted to keep the lead story dominant."
