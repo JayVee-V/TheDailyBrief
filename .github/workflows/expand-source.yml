@@ -1,0 +1,41 @@
+name: Expand Android source for Weekend Reading development
+
+on:
+  push:
+    branches: [feature/weekend-reading]
+    paths:
+      - '.github/workflows/expand-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  expand:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Expand pinned Android source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat source/v0.4.0.b64/part-*.txt | base64 -d > /tmp/source.zip
+          unzip -t /tmp/source.zip
+          mkdir -p expanded
+          unzip -q /tmp/source.zip -d /tmp/unpacked
+          ROOT="$(find /tmp/unpacked -mindepth 1 -maxdepth 1 -type d | head -1)"
+          cp -a "$ROOT"/. expanded/
+          find expanded -type f | head -30
+      - name: Commit expanded files on feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add expanded
+          if ! git diff --cached --quiet; then
+            git commit -m "Expand Android source for Weekend Reading changes"
+            git push
+          fi
