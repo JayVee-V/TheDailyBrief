@@ -1,4 +1,4 @@
-name: Build Weekend Reading test APK
+name: Build signed Weekend Reading phone test
 
 on:
   push:
@@ -9,14 +9,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  build:
+  signed-test:
     runs-on: ubuntu-latest
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      VERSION: "0.4.3-test.1"
+      TAG: "v0.4.3-test.1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -26,14 +28,67 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Install Android SDK
+      - name: Install SDK
         shell: bash
         run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-      - name: Build test APK
-        run: gradle -p expanded :app:assembleDebug
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - name: Verify v0.4.2 baseline and test version
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'versionCode = 7' expanded/app/build.gradle.kts
+          grep -q 'versionName = "0.4.3-test.1"' expanded/app/build.gradle.kts
+          grep -q 'rememberShownStories' expanded/app/src/main/java/org/morningbrief/app/EditionEngine.java
+          grep -q 'wasStoryShown' expanded/app/src/main/java/org/morningbrief/app/SettingsStore.java
+          test -s expanded/app/src/main/java/org/morningbrief/app/WeekendReading.java
+      - name: Restore original Android signing identity
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_B64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::ANDROID_DEBUG_KEYSTORE_B64 missing"
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/debug.keystore"
+          keytool -list -keystore "$RUNNER_TEMP/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
+      - name: Compile Android release
+        run: gradle -p expanded :app:assembleRelease
+      - name: Sign and verify phone-update APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          UNSIGNED="expanded/app/build/outputs/apk/release/app-release-unsigned.apk"
+          ALIGNED="$RUNNER_TEMP/TheDailyBrief-v$VERSION-aligned.apk"
+          SIGNED="$RUNNER_TEMP/TheDailyBrief-v$VERSION.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f -v 4 "$UNSIGNED" "$ALIGNED"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
+            --ks "$RUNNER_TEMP/debug.keystore" \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out "$SIGNED" "$ALIGNED"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$SIGNED"
+          echo "SIGNED_APK=$SIGNED" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
         with:
-          name: WeekendReading-debug-apk
-          path: expanded/app/build/outputs/apk/debug/app-debug.apk
+          name: WeekendReading-signed-test-apk
+          path: ${{ runner.temp }}/TheDailyBrief-v0.4.3-test.1.apk
+      - name: Publish prerelease for phone installation
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::Release $TAG already exists"
+            exit 1
+          fi
+          gh release create "$TAG" "$SIGNED_APK#TheDailyBrief-v$VERSION.apk" \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "The Daily Brief $VERSION — Weekend Reading test" \
+            --notes "Phone test build from the v0.4.2 baseline. Adds Weekend Reading tab, selectable RSS feeds, user-added feeds, persistent article cards and explicit dismissal. Signed with the existing Android key to support an in-place update. This is not a final release."
