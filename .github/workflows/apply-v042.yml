@@ -1,0 +1,35 @@
+name: Apply released v0.4.2 patches to Weekend Reading branch
+
+on:
+  push:
+    branches: [feature/weekend-reading]
+    paths: ['.github/workflows/apply-v042.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Apply original release patches in the original order
+        shell: bash
+        run: |
+          set -euo pipefail
+          patch -d expanded -p1 < source/patches/v0.4.1.patch
+          patch -d expanded -p1 < source/patches/v0.4.2.patch
+          grep -q 'versionName = "0.4.2"' expanded/app/build.gradle.kts
+          grep -q 'rememberShownStories' expanded/app/src/main/java/org/morningbrief/app/EditionEngine.java
+      - name: Save patched source back to feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add expanded
+          git commit -m "Base Weekend Reading on released v0.4.2 sources"
+          git push
