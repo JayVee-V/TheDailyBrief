@@ -83,6 +83,11 @@ final class EditionEngine {
         List<Story> poolStories = new ArrayList<>();
         Set<String> exactSeen = new HashSet<>();
 
+        // A newspaper does not reprint yesterday's story. Seed the permanent
+        // shown-history from the last v0.4.1 cache, then exclude anything that
+        // has already appeared in a completed edition.
+        SettingsStore.rememberShownStories(context, SettingsStore.loadStoryCache(context));
+        Set<String> shownStories = SettingsStore.loadShownStoryKeys(context);
         for (Story s : gathered) {
             if (!StoryFilter.keep(context, s)) continue;
             if (s.publishedEpoch > 0 && now - s.publishedEpoch > maxAge) continue;
@@ -90,30 +95,21 @@ final class EditionEngine {
             s.cached = false;
             String key = normalize(s.title);
             if (key.isEmpty() || !exactSeen.add(key)) continue;
+            if (SettingsStore.wasStoryShown(shownStories, s)) continue;
             poolStories.add(s);
-        }
-
-        // Keep recent prior stories available as low-priority carry-forward material.
-        // They only survive if they still clear the same editorial quality threshold.
-        for (Story old : SettingsStore.loadStoryCache(context)) {
-            if (!StoryFilter.keep(context, old)) continue;
-            if (old.publishedEpoch > 0 && now - old.publishedEpoch > maxAge) continue;
-            if (old.sourceMode == null || old.sourceMode.trim().isEmpty()) old.sourceMode = inferMode(old.source, sources);
-            old.cached = true;
-            String key = normalize(old.title);
-            if (key.isEmpty() || !exactSeen.add(key)) continue;
-            poolStories.add(old);
         }
 
         report(listener, "Comparing coverage and removing duplicates…", 76);
         List<Story> selected = EditorialEngine.select(loc, poolStories, now);
         report(listener, "Choosing the strongest mix…", 89);
 
-        if (!selected.isEmpty()) SettingsStore.saveStoryCache(context, selected);
-
         report(listener, "Building your Daily Brief…", 96);
         String html = EditionBuilder.build(loc, weather, selected, weatherFresh, now, SettingsStore.theme(context));
         SettingsStore.writeCachedEdition(context, html);
+        if (!selected.isEmpty()) {
+            SettingsStore.saveStoryCache(context, selected);
+            SettingsStore.rememberShownStories(context, selected);
+        }
         SettingsStore.setLastRefresh(context, now);
         report(listener, "Edition ready", 100);
 

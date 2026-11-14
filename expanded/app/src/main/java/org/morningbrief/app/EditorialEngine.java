@@ -45,7 +45,9 @@ final class EditorialEngine {
         for (Scored candidate : scored) {
             boolean duplicate = false;
             for (Scored rep : clustered) {
-                if (sameEvent(candidate.story, rep.story)) {
+                boolean sameSource = sourceKey(candidate.story).equals(sourceKey(rep.story));
+                if ((sameSource && exactDuplicate(candidate.story, rep.story))
+                        || (!sameSource && sameEvent(candidate.story, rep.story))) {
                     duplicate = true;
                     break;
                 }
@@ -56,7 +58,13 @@ final class EditorialEngine {
         List<Story> out = new ArrayList<>();
         Map<String, Integer> sourceCounts = new HashMap<>();
         Map<String, Integer> topicCounts = new HashMap<>();
-        Set<Scored> remaining = new LinkedHashSet<>(clustered);
+        Set<Scored> remaining = new LinkedHashSet<>();
+        for (Scored x : clustered) {
+            // Intrinsic editorial quality determines whether a story belongs.
+            // Source/topic diversity penalties only affect ordering; they must
+            // never make an otherwise worthwhile story disappear.
+            if (x.base >= QUALITY_FLOOR) remaining.add(x);
+        }
 
         while (!remaining.isEmpty() && out.size() < HARD_CAP) {
             Scored best = null;
@@ -70,7 +78,7 @@ final class EditorialEngine {
                     best = x;
                 }
             }
-            if (best == null || bestAdjusted < QUALITY_FLOOR) break;
+            if (best == null) break;
 
             remaining.remove(best);
             Story chosen = best.story;
@@ -205,6 +213,13 @@ final class EditorialEngine {
             case 4 -> 10;
             default -> 10 + (previous - 4) * 5.0;
         };
+    }
+
+    private static boolean exactDuplicate(Story a, Story b) {
+        String au = a.url == null ? "" : a.url.trim();
+        String bu = b.url == null ? "" : b.url.trim();
+        if (!au.isEmpty() && au.equals(bu)) return true;
+        return normalize(a.title).equals(normalize(b.title));
     }
 
     private static boolean sameEvent(Story a, Story b) {

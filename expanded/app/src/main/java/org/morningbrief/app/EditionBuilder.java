@@ -34,9 +34,9 @@ final class EditionBuilder {
          .append(esc(date.toUpperCase(Locale.US))).append("</div></header>");
 
         h.append("<section class='front'>");
-        h.append(weatherCard(weather, weatherFresh));
         if (lead != null) h.append(leadCard(lead));
         else h.append("<section class='card empty'><b>No stories cleared today’s editorial cutoff.</b><p>Weather will still refresh when possible. The app will check again at the next refresh.</p></section>");
+        h.append(weatherCard(weather, weatherFresh));
         h.append("</section>");
 
         if (!remaining.isEmpty()) {
@@ -155,7 +155,7 @@ final class EditionBuilder {
             .lead-img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#555}.lead-copy{padding:14px 16px 17px}.source,.story-source{color:var(--muted)}.badge{display:inline-block;margin-left:6px;padding:2px 5px;border-radius:4px;background:var(--badge);font-size:.62rem;letter-spacing:.05em}.lead h2{font-size:clamp(1.7rem,6.5vw,2.4rem);line-height:1.05;margin:7px 0 9px}.lead h2 a,.read{color:var(--ink);text-decoration:none}.lead p{font-size:1.08rem;line-height:1.43;margin:0 0 12px}.read{font:700 .94rem system-ui,sans-serif}
             .contents{padding:15px 14px 12px;margin-top:15px}.inside-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}.inside-head h2{font-size:1.45rem;margin:0}.inside-head span{font:700 .72rem system-ui,sans-serif;color:var(--muted);letter-spacing:.05em}.section-head{border-bottom:2px solid var(--ink);padding:0 2px 7px;margin-top:22px}.section-head:first-of-type{margin-top:16px}.story-list{display:grid;gap:9px;padding-top:10px}.story{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:13px 12px;border:1px solid var(--rule);border-radius:10px;color:var(--ink);text-decoration:none}.story-source{font-size:.66rem;margin-bottom:5px}.story-title{font-size:1.08rem;font-weight:700;line-height:1.18}.summary{font-size:.91rem;color:var(--summary);margin-top:5px}.read-label{font:700 .7rem system-ui,sans-serif;letter-spacing:.06em;color:var(--muted)}
             .empty{padding:18px}.empty p{margin-bottom:0}footer{text-align:center;color:var(--muted);font:.72rem system-ui,sans-serif;padding:20px 5px 0}
-            @media(min-width:720px){.front{grid-template-columns:.9fr 1.4fr;align-items:start}}
+            @media(min-width:720px){.front{grid-template-columns:1.4fr .9fr;align-items:start}}
             """;
     }
 }

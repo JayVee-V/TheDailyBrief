@@ -13,7 +13,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 final class SettingsStore {
     private static final String PREFS = "morning_brief";
@@ -215,6 +217,72 @@ final class SettingsStore {
             }
         } catch (Exception ignored) {}
         return out;
+    }
+
+    private static File storyHistoryFile(Context c) {
+        return new File(c.getFilesDir(), "story_history.txt");
+    }
+
+    static Set<String> loadShownStoryKeys(Context c) {
+        Set<String> out = new HashSet<>();
+        File f = storyHistoryFile(c);
+        if (!f.exists()) return out;
+        try (FileInputStream in = new FileInputStream(f);
+             ByteArrayOutputStream bytes = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) >= 0) {
+                if (n > 0) bytes.write(buf, 0, n);
+            }
+            String raw = new String(bytes.toByteArray(), StandardCharsets.UTF_8);
+            for (String line : raw.split("\\r?\\n")) {
+                String key = line.trim();
+                if (!key.isEmpty()) out.add(key);
+            }
+        } catch (Exception ignored) {}
+        return out;
+    }
+
+    static boolean wasStoryShown(Set<String> shown, Story story) {
+        String urlKey = storyUrlKey(story == null ? "" : story.url);
+        String titleKey = storyTitleKey(story == null ? "" : story.title);
+        return (!urlKey.isEmpty() && shown.contains(urlKey))
+                || (!titleKey.isEmpty() && shown.contains(titleKey));
+    }
+
+    static void rememberShownStories(Context c, List<Story> stories) {
+        if (stories == null || stories.isEmpty()) return;
+        Set<String> known = loadShownStoryKeys(c);
+        StringBuilder added = new StringBuilder();
+        for (Story story : stories) {
+            String urlKey = storyUrlKey(story == null ? "" : story.url);
+            String titleKey = storyTitleKey(story == null ? "" : story.title);
+            if (!urlKey.isEmpty() && known.add(urlKey)) added.append(urlKey).append('\n');
+            if (!titleKey.isEmpty() && known.add(titleKey)) added.append(titleKey).append('\n');
+        }
+        if (added.length() == 0) return;
+        try (FileOutputStream out = new FileOutputStream(storyHistoryFile(c), true)) {
+            out.write(added.toString().getBytes(StandardCharsets.UTF_8));
+        } catch (Exception ignored) {}
+    }
+
+    private static String storyUrlKey(String value) {
+        if (value == null) return "";
+        String s = value.trim().toLowerCase(java.util.Locale.US);
+        int hash = s.indexOf('#');
+        if (hash >= 0) s = s.substring(0, hash);
+        int query = s.indexOf('?');
+        if (query >= 0) s = s.substring(0, query);
+        while (s.endsWith("/") && s.length() > 1) s = s.substring(0, s.length() - 1);
+        return s.isEmpty() ? "" : "u:" + s;
+    }
+
+    private static String storyTitleKey(String value) {
+        if (value == null) return "";
+        String s = value.toLowerCase(java.util.Locale.US)
+                .replaceAll("[^a-z0-9]+", " ")
+                .trim();
+        return s.isEmpty() ? "" : "t:" + s;
     }
 
     static void saveWeatherCache(Context c, WeatherData w) {
