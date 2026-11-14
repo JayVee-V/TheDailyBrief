@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -31,14 +32,35 @@ final class WeekendReading {
     private static final String QUEUE = "weekend_queue_v1";
     private static final String DISMISSED = "weekend_dismissed_v1";
     private static final String[] SUGGESTED_NAMES = {
-            "The Conversation", "Atlas Obscura", "Ars Technica — Features", "RetroRGB"
+            "The Conversation", "Atlas Obscura", "Ars Technica — Features", "RetroRGB",
+            "Quanta Magazine", "Literary Hub", "Longreads", "JSTOR Daily",
+            "Hackaday", "Open Culture", "Kottke.org", "Aeon",
+            "NASA", "Space.com", "The Verge", "404 Media",
+            "Nature", "ScienceDaily", "Ars Technica — Gaming"
     };
     private static final String[] SUGGESTED_URLS = {
             "https://theconversation.com/us/articles.atom",
             "https://www.atlasobscura.com/feeds/latest",
             "https://feeds.arstechnica.com/arstechnica/features",
-            "https://retrorgb.com/category/retrorgb/feed"
+            "https://retrorgb.com/category/retrorgb/feed",
+            "https://www.quantamagazine.org/feed/",
+            "https://lithub.com/feed/",
+            "https://longreads.com/feed/",
+            "https://daily.jstor.org/feed/",
+            "https://hackaday.com/blog/feed/",
+            "https://www.openculture.com/feed",
+            "https://kottke.org/index.xml",
+            "https://aeon.co/feed.rss",
+            "https://www.nasa.gov/feed/",
+            "https://www.space.com/feeds/all",
+            "https://www.theverge.com/rss/index.xml",
+            "https://www.404media.co/rss/",
+            "https://www.nature.com/nature.rss",
+            "https://www.sciencedaily.com/rss/all.xml",
+            "https://feeds.arstechnica.com/arstechnica/gaming"
     };
+    private static final int MAX_NEW_PER_FEED = 5;
+    private static final long MAX_INITIAL_AGE_MS = 21L * 24 * 60 * 60 * 1000;
     private final MainActivity activity;
     private final LinearLayout screen;
     private final int ink;
@@ -79,20 +101,26 @@ final class WeekendReading {
     }
     private List<Feed> feeds() {
         List<Feed> list = new ArrayList<>();
-        String raw=stored(FEEDS, "");
-        if (raw.isEmpty()) {
-            for (int i=0;i<SUGGESTED_NAMES.length;i++)
-                list.add(new Feed(SUGGESTED_NAMES[i], SUGGESTED_URLS[i], i < 2));
-            return list;
+        String raw = stored(FEEDS, "");
+        if (!raw.isEmpty()) {
+            try {
+                JSONArray a = new JSONArray(raw);
+                for (int i = 0; i < a.length(); i++) {
+                    JSONObject o = a.optJSONObject(i);
+                    if (o == null) continue;
+                    String u = o.optString("url", "");
+                    if (!u.isEmpty()) list.add(new Feed(o.optString("name", "Feed"), u,
+                            o.optBoolean("enabled", false)));
+                }
+            } catch (Exception ignored) {}
         }
-        try {
-            JSONArray a=new JSONArray(raw);
-            for (int i=0;i<a.length();i++) {
-                JSONObject o=a.optJSONObject(i); if(o==null)continue;
-                String u=o.optString("url","");
-                if(!u.isEmpty()) list.add(new Feed(o.optString("name","Feed"),u,o.optBoolean("enabled",false)));
-            }
-        } catch(Exception ignored) {}
+        // Append new suggestions to existing installs without changing any existing toggle.
+        for (int i = 0; i < SUGGESTED_URLS.length; i++) {
+            boolean exists = false;
+            for (Feed f : list) if (f.url.equals(SUGGESTED_URLS[i])) { exists = true; break; }
+            if (!exists) list.add(new Feed(SUGGESTED_NAMES[i], SUGGESTED_URLS[i],
+                    raw.isEmpty() && i < 2));
+        }
         return list;
     }
     private void saveFeeds(List<Feed> list) {
@@ -157,59 +185,100 @@ final class WeekendReading {
         if(bold)t.setTypeface(android.graphics.Typeface.SERIF,android.graphics.Typeface.BOLD);
         return t;
     }
+    private GradientDrawable panel(int color) {
+        GradientDrawable d = new GradientDrawable();
+        d.setColor(color);
+        d.setCornerRadius(dp(14));
+        return d;
+    }
+
+    private void openArticle(Card card) {
+        try { activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(card.url))); }
+        catch (Exception e) { Toast.makeText(activity, "Unable to open article", Toast.LENGTH_SHORT).show(); }
+    }
+
     void render() {
         screen.removeAllViews();
-        LinearLayout actions=new LinearLayout(activity);
+        LinearLayout actions = new LinearLayout(activity);
         actions.setGravity(Gravity.CENTER_VERTICAL);
-        actions.setPadding(dp(12),dp(7),dp(12),dp(7));
-        Button manage=new Button(activity);manage.setText("Feeds");
-        manage.setOnClickListener(v->manage());
-        actions.addView(manage,new LinearLayout.LayoutParams(0,dp(48),1));
-        Button reload=new Button(activity);reload.setText(busy?"Loading…":"Collect");
-        reload.setEnabled(!busy);reload.setOnClickListener(v->collect());
-        actions.addView(reload,new LinearLayout.LayoutParams(0,dp(48),1));
+        actions.setPadding(dp(16), dp(8), dp(16), dp(4));
+        Button manage = new Button(activity);
+        manage.setText("Sources");
+        manage.setOnClickListener(v -> manage());
+        actions.addView(manage, new LinearLayout.LayoutParams(0, dp(46), 1));
+        Button reload = new Button(activity);
+        reload.setText(busy ? "Collecting…" : "Collect new");
+        reload.setEnabled(!busy);
+        reload.setOnClickListener(v -> collect());
+        actions.addView(reload, new LinearLayout.LayoutParams(0, dp(46), 1));
         screen.addView(actions);
-        ScrollView sc=new ScrollView(activity);
-        LinearLayout column=new LinearLayout(activity);
+
+        ScrollView sc = new ScrollView(activity);
+        sc.setFillViewport(true);
+        LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
-        column.setPadding(dp(16),dp(8),dp(16),dp(24));
-        TextView header=text("WEEKEND READING",22,true,ink);
+        column.setPadding(dp(16), dp(16), dp(16), dp(28));
+        TextView header = text("Your reading shelf", 26, true, ink);
         column.addView(header);
-        List<Card> list=cards();
-        TextView help=text(list.size()+" saved articles · Open a story without removing it. Dismiss when finished or uninterested.",13,false,muted);
-        help.setPadding(0,dp(8),0,dp(16));column.addView(help);
-        if(list.isEmpty()) {
-            TextView empty=text("Your reading shelf is empty. Choose feeds, then tap Collect to add stories.",16,false,muted);
-            empty.setPadding(0,dp(22),0,dp(20));column.addView(empty);
+        List<Card> list = cards();
+        TextView help = text(list.size() + " articles waiting · Your choices, your pace", 13, false, muted);
+        help.setPadding(0, dp(6), 0, dp(20));
+        column.addView(help);
+
+        if (list.isEmpty()) {
+            TextView empty = text("Nothing on your shelf yet. Select a few sources, then collect articles to read whenever you like.", 16, false, muted);
+            empty.setPadding(dp(12), dp(24), dp(12), dp(24));
+            empty.setBackground(panel(uiPanel()));
+            column.addView(empty);
         }
-        for(Card c:list) {
-            LinearLayout card=new LinearLayout(activity);
+        for (Card c : list) {
+            LinearLayout card = new LinearLayout(activity);
             card.setOrientation(LinearLayout.VERTICAL);
-            card.setPadding(dp(12),dp(14),dp(12),dp(14));
-            TextView source=text(c.source.toUpperCase(),11,false,muted);card.addView(source);
-            TextView headline=text(c.title,19,true,ink);
-            headline.setPadding(0,dp(6),0,dp(6));card.addView(headline);
-            String brief=c.summary==null?"":c.summary;
-            if(brief.length()>240)brief=brief.substring(0,237)+"…";
-            TextView summary=text(brief,14,false,muted);card.addView(summary);
-            LinearLayout buttons=new LinearLayout(activity);
-            Button open=new Button(activity);open.setText("Read article");
-            open.setOnClickListener(v->{
-                try { activity.startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(c.url))); }
-                catch(Exception e){Toast.makeText(activity,"Unable to open article",Toast.LENGTH_SHORT).show();}
-            });
-            buttons.addView(open,new LinearLayout.LayoutParams(0,dp(46),1));
-            Button remove=new Button(activity);remove.setText("Dismiss");
-            remove.setOnClickListener(v->dismiss(c));
-            buttons.addView(remove,new LinearLayout.LayoutParams(0,dp(46),1));
-            card.addView(buttons);
+            card.setPadding(dp(16), dp(12), dp(12), dp(14));
+            card.setBackground(panel(uiPanel()));
+            LinearLayout heading = new LinearLayout(activity);
+            heading.setGravity(Gravity.TOP | Gravity.CENTER_VERTICAL);
+            TextView source = text(c.source.toUpperCase(java.util.Locale.US), 11, true, muted);
+            source.setLetterSpacing(0.08f);
+            heading.addView(source, new LinearLayout.LayoutParams(0, dp(36), 1));
+            TextView close = text("×", 28, false, muted);
+            close.setContentDescription("Dismiss " + c.title);
+            close.setGravity(Gravity.CENTER);
+            close.setOnClickListener(v -> dismiss(c));
+            heading.addView(close, new LinearLayout.LayoutParams(dp(44), dp(44)));
+            card.addView(heading);
+
+            TextView headline = text(c.title, 20, true, ink);
+            headline.setLineSpacing(dp(2), 1.0f);
+            headline.setPadding(0, 0, dp(8), dp(8));
+            headline.setOnClickListener(v -> openArticle(c));
+            card.addView(headline);
+
+            String brief = c.summary == null ? "" : c.summary;
+            if (brief.length() > 210) brief = brief.substring(0, 207) + "…";
+            if (!brief.isEmpty()) {
+                TextView summary = text(brief, 14, false, muted);
+                summary.setLineSpacing(dp(2), 1.0f);
+                summary.setPadding(0, 0, dp(8), dp(12));
+                summary.setOnClickListener(v -> openArticle(c));
+                card.addView(summary);
+            }
+            TextView read = text("READ ARTICLE  ›", 12, true, ink);
+            read.setLetterSpacing(0.06f);
+            read.setPadding(0, dp(2), 0, dp(3));
+            read.setOnClickListener(v -> openArticle(c));
+            card.addView(read);
             column.addView(card);
-            View line=new View(activity);line.setBackgroundColor(muted);
-            column.addView(line,new LinearLayout.LayoutParams(-1,dp(1)));
+            LinearLayout.LayoutParams cardLayout = (LinearLayout.LayoutParams) card.getLayoutParams();
+            cardLayout.bottomMargin = dp(12);
+            card.setLayoutParams(cardLayout);
         }
         sc.addView(column);
-        screen.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
+        screen.addView(sc, new LinearLayout.LayoutParams(-1, 0, 1));
     }
+    private int uiPanel() { return background == Color.rgb(16,17,15)
+            ? Color.rgb(37,39,37) : Color.rgb(239,239,233); }
+
     private void dismiss(Card card) {
         List<Card> list=cards();
         list.removeIf(c->id(c.url).equals(id(card.url)));
@@ -282,16 +351,22 @@ final class WeekendReading {
             List<Card> list=cards();
             Set<String> seen=dismissed();
             for(Card c:list)seen.add(id(c.url));
+            long now = System.currentTimeMillis();
             for(Feed f:feeds()) {
                 if(!f.enabled)continue;
                 try {
                     SourceConfig source=new SourceConfig(f.name,f.url,f.url,"direct");
-                    for(Story st:FeedReader.read(source)) {
+                    List<Story> incoming = FeedReader.read(source);
+                    incoming.sort((a,b)->Long.compare(b.publishedEpoch,a.publishedEpoch));
+                    int fromFeed = 0;
+                    for(Story st:incoming) {
+                        if(fromFeed >= MAX_NEW_PER_FEED)break;
                         if(st.url==null||!st.url.startsWith("http"))continue;
+                        if(st.publishedEpoch > 0 && now-st.publishedEpoch > MAX_INITIAL_AGE_MS)continue;
                         String key=id(st.url);if(seen.contains(key))continue;
                         seen.add(key);
                         list.add(new Card(st.source,st.title,st.summary,st.url,st.publishedEpoch));
-                        added++;
+                        fromFeed++; added++;
                     }
                 }catch(Exception ignored){failures++;}
             }
