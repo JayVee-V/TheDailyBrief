@@ -11,6 +11,7 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -18,6 +19,8 @@ import android.widget.Toast;
 
 public class MainActivity extends Activity {
     private WebView web;
+    private WeekendReading weekend;
+    private boolean showingWeekend = false;
     private ProgressBar progress;
     private TextView progressStatus;
     private volatile boolean refreshing = false;
@@ -76,6 +79,16 @@ public class MainActivity extends Activity {
         bar.addView(settings, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(44)));
         root.addView(bar);
 
+        LinearLayout tabs = new LinearLayout(this);
+        tabs.setOrientation(LinearLayout.HORIZONTAL);
+        Button morningTab = new Button(this);
+        morningTab.setText("Morning Brief");
+        Button weekendTab = new Button(this);
+        weekendTab.setText("Weekend Reading");
+        tabs.addView(morningTab, new LinearLayout.LayoutParams(0, dp(48), 1));
+        tabs.addView(weekendTab, new LinearLayout.LayoutParams(0, dp(48), 1));
+        root.addView(tabs);
+
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         progress.setIndeterminate(false);
         progress.setMax(100);
@@ -108,7 +121,31 @@ public class MainActivity extends Activity {
                 }
             }
         });
-        root.addView(web, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
+        FrameLayout pages = new FrameLayout(this);
+        pages.addView(web, new FrameLayout.LayoutParams(-1, -1));
+        weekend = new WeekendReading(this, uiDark);
+        pages.addView(weekend.view(), new FrameLayout.LayoutParams(-1, -1));
+        weekend.view().setVisibility(View.GONE);
+        morningTab.setOnClickListener(v -> {
+            showingWeekend = false;
+            web.setVisibility(View.VISIBLE);
+            weekend.view().setVisibility(View.GONE);
+            title.setText("THE MORNING BRIEF");
+            refresh.setText("Refresh");
+        });
+        weekendTab.setOnClickListener(v -> {
+            showingWeekend = true;
+            web.setVisibility(View.GONE);
+            weekend.view().setVisibility(View.VISIBLE);
+            title.setText("WEEKEND READING");
+            refresh.setText("Collect");
+            weekend.render();
+        });
+        refresh.setOnClickListener(v -> {
+            if (showingWeekend) weekend.collect();
+            else refresh(true);
+        });
+        root.addView(pages, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
     }
 
@@ -120,7 +157,8 @@ public class MainActivity extends Activity {
             recreate();
             return;
         }
-        loadCached();
+        if (!showingWeekend) loadCached();
+        else weekend.render();
     }
 
     private void loadCached() {
