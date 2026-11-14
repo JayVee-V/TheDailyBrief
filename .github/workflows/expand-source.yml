@@ -17,8 +17,8 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-      VERSION: "0.4.3"
-      TAG: "v0.4.3"
+      VERSION: "0.5.0"
+      TAG: "v0.5.0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -39,8 +39,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'versionCode = 10' expanded/app/build.gradle.kts
-          grep -q 'versionName = "0.4.3"' expanded/app/build.gradle.kts
+          grep -q 'versionCode = 11' expanded/app/build.gradle.kts
+          grep -q 'versionName = "0.5.0"' expanded/app/build.gradle.kts
           grep -q 'rememberShownStories' expanded/app/src/main/java/org/morningbrief/app/EditionEngine.java
           grep -q 'wasStoryShown' expanded/app/src/main/java/org/morningbrief/app/SettingsStore.java
           test -s expanded/app/src/main/java/org/morningbrief/app/WeekendReading.java
@@ -77,7 +77,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: WeekendReading-signed-test-apk
-          path: ${{ runner.temp }}/TheDailyBrief-v0.4.3.apk
+          path: ${{ runner.temp }}/TheDailyBrief-v0.5.0.apk
       - name: Publish prerelease for phone installation
         shell: bash
         env:
