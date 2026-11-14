@@ -17,8 +17,8 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-      VERSION: "0.4.3-test.3"
-      TAG: "v0.4.3-test.3"
+      VERSION: "0.4.3"
+      TAG: "v0.4.3"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -39,8 +39,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'versionCode = 9' expanded/app/build.gradle.kts
-          grep -q 'versionName = "0.4.3-test.3"' expanded/app/build.gradle.kts
+          grep -q 'versionCode = 10' expanded/app/build.gradle.kts
+          grep -q 'versionName = "0.4.3"' expanded/app/build.gradle.kts
           grep -q 'rememberShownStories' expanded/app/src/main/java/org/morningbrief/app/EditionEngine.java
           grep -q 'wasStoryShown' expanded/app/src/main/java/org/morningbrief/app/SettingsStore.java
           test -s expanded/app/src/main/java/org/morningbrief/app/WeekendReading.java
@@ -77,7 +77,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: WeekendReading-signed-test-apk
-          path: ${{ runner.temp }}/TheDailyBrief-v0.4.3-test.3.apk
+          path: ${{ runner.temp }}/TheDailyBrief-v0.4.3.apk
       - name: Publish prerelease for phone installation
         shell: bash
         env:
@@ -89,6 +89,6 @@ jobs:
             exit 1
           fi
           gh release create "$TAG" "$SIGNED_APK#TheDailyBrief-v$VERSION.apk" \
-            --target "$GITHUB_SHA" --prerelease \
-            --title "The Daily Brief $VERSION — Weekend Reading test" \
-            --notes "Phone test build from the v0.4.2 baseline. Adds Weekend Reading tab, selectable RSS feeds, user-added feeds, persistent article cards and explicit dismissal. Signed with the existing Android key to support an in-place update. This is not a final release."
+            --target "$GITHUB_SHA" \
+            --title "The Daily Brief v$VERSION" \
+            --notes "Stable update built from v0.4.2: Weekend Reading tab, 42 optional RSS feeds, custom feed support, manually dismissible persistent article cards, improved source-picker contrast and descriptions, and existing Morning Brief no-repeat behavior preserved."
