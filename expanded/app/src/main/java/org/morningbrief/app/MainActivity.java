@@ -1,6 +1,7 @@
 package org.morningbrief.app;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
@@ -18,9 +19,15 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 public class MainActivity extends Activity {
+    private static final int PAGE_MORNING = 0;
+    private static final int PAGE_FUNNIES = 1;
+    private static final int PAGE_WEEKEND = 2;
+
     private WebView web;
+    private FunniesPuzzles funnies;
     private WeekendReading weekend;
-    private boolean showingWeekend = false;
+    private TextView title;
+    private int currentPage = PAGE_MORNING;
     private ProgressBar progress;
     private TextView progressStatus;
     private volatile boolean refreshing = false;
@@ -61,33 +68,19 @@ public class MainActivity extends Activity {
         bar.setPadding(dp(12), dp(6), dp(6), dp(6));
         bar.setBackgroundColor(background);
 
-        TextView title = new TextView(this);
+        title = new TextView(this);
         title.setText("THE MORNING BRIEF");
         title.setTextColor(ink);
         title.setTextSize(18);
+        title.setGravity(Gravity.CENTER_VERTICAL);
         title.setTypeface(android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD);
         bar.addView(title, new LinearLayout.LayoutParams(0, dp(44), 1));
 
-        Button refresh = new Button(this);
-        refresh.setText("Refresh");
-        refresh.setOnClickListener(v -> refresh(true));
-        bar.addView(refresh, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(44)));
-
         Button settings = new Button(this);
         settings.setText("Settings");
-        settings.setOnClickListener(v -> startActivity(new Intent(this, SetupActivity.class).putExtra("edit", true)));
+        settings.setOnClickListener(v -> showCurrentSettings());
         bar.addView(settings, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(44)));
         root.addView(bar);
-
-        LinearLayout tabs = new LinearLayout(this);
-        tabs.setOrientation(LinearLayout.HORIZONTAL);
-        Button morningTab = new Button(this);
-        morningTab.setText("Morning Brief");
-        Button weekendTab = new Button(this);
-        weekendTab.setText("Weekend Reading");
-        tabs.addView(morningTab, new LinearLayout.LayoutParams(0, dp(48), 1));
-        tabs.addView(weekendTab, new LinearLayout.LayoutParams(0, dp(48), 1));
-        root.addView(tabs);
 
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         progress.setIndeterminate(false);
@@ -121,32 +114,85 @@ public class MainActivity extends Activity {
                 }
             }
         });
+
         FrameLayout pages = new FrameLayout(this);
         pages.addView(web, new FrameLayout.LayoutParams(-1, -1));
+
+        funnies = new FunniesPuzzles(this, uiDark);
+        pages.addView(funnies.view(), new FrameLayout.LayoutParams(-1, -1));
+        funnies.view().setVisibility(View.GONE);
+
         weekend = new WeekendReading(this, uiDark);
         pages.addView(weekend.view(), new FrameLayout.LayoutParams(-1, -1));
         weekend.view().setVisibility(View.GONE);
-        morningTab.setOnClickListener(v -> {
-            showingWeekend = false;
-            web.setVisibility(View.VISIBLE);
-            weekend.view().setVisibility(View.GONE);
-            title.setText("THE MORNING BRIEF");
-            refresh.setText("Refresh");
-        });
-        weekendTab.setOnClickListener(v -> {
-            showingWeekend = true;
-            web.setVisibility(View.GONE);
-            weekend.view().setVisibility(View.VISIBLE);
-            title.setText("WEEKEND READING");
-            refresh.setText("Collect");
-            weekend.render();
-        });
-        refresh.setOnClickListener(v -> {
-            if (showingWeekend) weekend.collect();
-            else refresh(true);
-        });
+
         root.addView(pages, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        LinearLayout tabs = new LinearLayout(this);
+        tabs.setOrientation(LinearLayout.HORIZONTAL);
+        tabs.setBackgroundColor(background);
+
+        Button morningTab = tabButton("Morning Brief");
+        Button funniesTab = tabButton("Funnies & Puzzles");
+        Button weekendTab = tabButton("Weekend Reading");
+        tabs.addView(morningTab, new LinearLayout.LayoutParams(0, dp(58), 1));
+        tabs.addView(funniesTab, new LinearLayout.LayoutParams(0, dp(58), 1));
+        tabs.addView(weekendTab, new LinearLayout.LayoutParams(0, dp(58), 1));
+        root.addView(tabs);
+
+        morningTab.setOnClickListener(v -> switchPage(PAGE_MORNING));
+        funniesTab.setOnClickListener(v -> switchPage(PAGE_FUNNIES));
+        weekendTab.setOnClickListener(v -> switchPage(PAGE_WEEKEND));
+
         setContentView(root);
+    }
+
+    private Button tabButton(String label) {
+        Button b = new Button(this);
+        b.setText(label);
+        b.setTextSize(11);
+        b.setAllCaps(false);
+        b.setGravity(Gravity.CENTER);
+        return b;
+    }
+
+    private void switchPage(int page) {
+        currentPage = page;
+        web.setVisibility(page == PAGE_MORNING ? View.VISIBLE : View.GONE);
+        funnies.view().setVisibility(page == PAGE_FUNNIES ? View.VISIBLE : View.GONE);
+        weekend.view().setVisibility(page == PAGE_WEEKEND ? View.VISIBLE : View.GONE);
+        if (page == PAGE_MORNING) {
+            title.setText("THE MORNING BRIEF");
+            loadCached();
+        } else if (page == PAGE_FUNNIES) {
+            title.setText("FUNNIES & PUZZLES");
+            funnies.render();
+        } else {
+            title.setText("WEEKEND READING");
+            weekend.render();
+        }
+    }
+
+    private void showCurrentSettings() {
+        if (currentPage == PAGE_FUNNIES) {
+            funnies.showSettings();
+            return;
+        }
+        if (currentPage == PAGE_WEEKEND) {
+            weekend.showSettings();
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Morning Brief settings")
+                .setItems(new String[]{"News, weather & appearance", "Rebuild current edition"}, (dialog, which) -> {
+                    if (which == 0) {
+                        startActivity(new Intent(this, SetupActivity.class).putExtra("edit", true));
+                    } else {
+                        refresh(true);
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     @Override protected void onResume() {
@@ -157,7 +203,8 @@ public class MainActivity extends Activity {
             recreate();
             return;
         }
-        if (!showingWeekend) loadCached();
+        if (currentPage == PAGE_MORNING) loadCached();
+        else if (currentPage == PAGE_FUNNIES) funnies.render();
         else weekend.render();
     }
 

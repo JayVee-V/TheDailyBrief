@@ -19,7 +19,7 @@ final class WeatherService {
                 StandardCharsets.UTF_8.toString());
         String url = "https://api.open-meteo.com/v1/forecast?latitude=" + loc.latitude
                 + "&longitude=" + loc.longitude
-                + "&hourly=temperature_2m,precipitation_probability,weather_code"
+                + "&hourly=temperature_2m,apparent_temperature,precipitation_probability,weather_code"
                 + "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max"
                 + "&temperature_unit=fahrenheit&forecast_days=3&timezone=" + tz;
         JSONObject root = new JSONObject(Net.getString(url, 800_000));
@@ -31,6 +31,7 @@ final class WeatherService {
 
         JSONArray times = hourly.getJSONArray("time");
         JSONArray temps = hourly.getJSONArray("temperature_2m");
+        JSONArray feels = hourly.getJSONArray("apparent_temperature");
         JSONArray rain = hourly.getJSONArray("precipitation_probability");
         JSONArray codes = hourly.getJSONArray("weather_code");
         int[] targetHours = {6, 11, 16, 21};
@@ -47,6 +48,7 @@ final class WeatherService {
                         WeatherData.Hour h = new WeatherData.Hour();
                         h.label = labels[j];
                         h.temp = (int) Math.round(temps.optDouble(i));
+                        h.feelsLike = (int) Math.round(feels.optDouble(i));
                         h.rain = rain.isNull(i) ? 0 : rain.optInt(i, 0);
                         h.condition = condition(codes.optInt(i, 0));
                         out.hours.add(h);
