@@ -293,7 +293,7 @@ final class SettingsStore {
             JSONArray hours = new JSONArray();
             for (WeatherData.Hour h : w.hours) {
                 JSONObject o = new JSONObject();
-                o.put("label", h.label); o.put("temp", h.temp); o.put("rain", h.rain); o.put("condition", h.condition);
+                o.put("label", h.label); o.put("temp", h.temp); o.put("feelsLike", h.feelsLike); o.put("rain", h.rain); o.put("condition", h.condition);
                 hours.put(o);
             }
             JSONArray days = new JSONArray();
@@ -318,7 +318,7 @@ final class SettingsStore {
             if (hours != null) for (int i = 0; i < hours.length(); i++) {
                 JSONObject o = hours.optJSONObject(i); if (o == null) continue;
                 WeatherData.Hour h = new WeatherData.Hour();
-                h.label = o.optString("label", ""); h.temp = o.optInt("temp"); h.rain = o.optInt("rain"); h.condition = o.optString("condition", "");
+                h.label = o.optString("label", ""); h.temp = o.optInt("temp"); h.feelsLike = o.has("feelsLike") ? o.optInt("feelsLike") : h.temp; h.rain = o.optInt("rain"); h.condition = o.optString("condition", "");
                 w.hours.add(h);
             }
             JSONArray days = root.optJSONArray("days");
