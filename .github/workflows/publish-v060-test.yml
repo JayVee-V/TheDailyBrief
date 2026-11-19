@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - '.release/v0.6.0-test.1'
+      - '.release/v0.6.0-test.2'
       - '.github/workflows/publish-v060-test.yml'
 
 permissions:
@@ -17,7 +17,7 @@ jobs:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
       VERSION: "0.6.0-test.1"
-      TAG: "v0.6.0-test.1"
+      TAG: "v0.6.0-test.2"
 
     steps:
       - uses: actions/checkout@v5
@@ -44,7 +44,7 @@ jobs:
         run: |
           set -euo pipefail
           grep -q 'versionName = "0.6.0-test.1"' expanded/app/build.gradle.kts
-          grep -q 'versionCode = 12' expanded/app/build.gradle.kts
+          grep -q 'versionCode = 13' expanded/app/build.gradle.kts
 
       - name: Restore existing Android signing key
         shell: bash
@@ -99,4 +99,4 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "The Daily Brief $VERSION" \
             --prerelease \
-            --notes "Phone test for the personal-reader update: bottom navigation with Morning Brief, Funnies & Puzzles, and Weekend Reading; tab-specific Settings; Morning Brief rebuild moved into Settings; feels-like temperatures; deafkitten's Imgur posts; Mini Crossword; and Daily Logic Puzzles."
+            --notes "Phone test for the Android navigation-inset fix: bottom app tabs now sit above the phone navigation bar on Android 15 / target SDK 35. Includes all v0.6 personal-reader features from test.1."
