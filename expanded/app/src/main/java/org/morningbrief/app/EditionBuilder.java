@@ -81,6 +81,7 @@ final class EditionBuilder {
             for (WeatherData.Hour x : w.hours) {
                 h.append("<div class='forecast'><b>").append(esc(x.label)).append("</b>")
                  .append("<span class='temp'>").append(x.temp).append("&deg;</span>")
+                 .append("<small>Feels ").append(x.feelsLike).append("&deg;</small>")
                  .append("<span>").append(esc(x.condition)).append("</span>")
                  .append("<small>").append(x.rain).append("% precip</small></div>");
             }
