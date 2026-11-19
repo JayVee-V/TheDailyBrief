@@ -305,19 +305,6 @@ final class WeekendReading {
 
     void render() {
         screen.removeAllViews();
-        LinearLayout actions = new LinearLayout(activity);
-        actions.setGravity(Gravity.CENTER_VERTICAL);
-        actions.setPadding(dp(16), dp(8), dp(16), dp(4));
-        Button manage = new Button(activity);
-        manage.setText("Sources");
-        manage.setOnClickListener(v -> manage());
-        actions.addView(manage, new LinearLayout.LayoutParams(0, dp(46), 1));
-        Button reload = new Button(activity);
-        reload.setText(busy ? "Collecting…" : "Collect new");
-        reload.setEnabled(!busy);
-        reload.setOnClickListener(v -> collect());
-        actions.addView(reload, new LinearLayout.LayoutParams(0, dp(46), 1));
-        screen.addView(actions);
 
         ScrollView sc = new ScrollView(activity);
         sc.setFillViewport(true);
@@ -398,6 +385,19 @@ final class WeekendReading {
             if (SUGGESTED_URLS[i].equals(feed.url)) return SUGGESTED_DESCRIPTIONS[i];
         }
         return "Custom RSS/Atom feed · " + Uri.parse(feed.url).getHost();
+    }
+
+    void showSettings() {
+        String collectLabel = busy ? "Collecting…" : "Collect new articles";
+        AlertDialog dialog = new AlertDialog.Builder(activity)
+                .setTitle("Weekend Reading")
+                .setItems(new String[]{"Choose sources", collectLabel}, (d, which) -> {
+                    if (which == 0) manage();
+                    else if (!busy) collect();
+                })
+                .setNegativeButton("Cancel", null)
+                .create();
+        dialog.show();
     }
 
     private void manage() {
