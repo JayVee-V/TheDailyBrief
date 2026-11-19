@@ -2,10 +2,14 @@ name: Build APK
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'expanded/**'
+      - '.github/workflows/build-apk.yml'
   push:
     branches: [ main ]
     paths:
-      - 'source/v0.4.0.b64/**'
+      - 'expanded/**'
       - '.github/workflows/build-apk.yml'
 
 jobs:
@@ -35,31 +39,10 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Reconstruct and verify v0.4.0 source
-        shell: bash
-        run: |
-          set -euo pipefail
-          ZIP="/tmp/MorningBriefAndroid-v0.4.0.zip"
-          echo "11f7b7012842b9e0dc93629da84b764c86cd9ff03e07c0b982212606dc533f74  source/v0.4.0.b64/part-00.txt" | sha256sum -c -
-          echo "1221d6ab06421d252a265b95eb3247011c69e554626b896fd00562c3c2ed7950  source/v0.4.0.b64/part-01.txt" | sha256sum -c -
-          echo "7e40deca012e752501e5f6b265f371398b24cc61a2a028befe949b511842457a  source/v0.4.0.b64/part-02.txt" | sha256sum -c -
-          echo "6243ec68a735d3a9bfb03781e30bb08fc67a047fa4a26aa124dbf4d36e32574d  source/v0.4.0.b64/part-03.txt" | sha256sum -c -
-          echo "1f82d4e3c4d52862263d251da6a7bc2a142fa0f16668e49dc9b7f0c1965cb85e  source/v0.4.0.b64/part-04.txt" | sha256sum -c -
-          echo "afca3785a8887e67304bd9ec22ce6501dfd19442dd3e0b447a7c4ae15e988cb9  source/v0.4.0.b64/part-05.txt" | sha256sum -c -
-          echo "2cf83b253981f65e31f30e2f3f4bb4690f42951eb8b7e34f3fbe3d3c89a3db0f  source/v0.4.0.b64/part-06.txt" | sha256sum -c -
-          echo "b931313cc8097a20fbb82a1765dc75e2acdd2129a14e7b49d532523bc7bf6371  source/v0.4.0.b64/part-07.txt" | sha256sum -c -
-          cat source/v0.4.0.b64/part-*.txt | base64 -d > "$ZIP"
-          echo "aa5cd8db0d9a2f2e153d1fe67cd7555619e6e3e01680f84abde263f13f2e8111  $ZIP" | sha256sum -c -
-          unzip -t "$ZIP"
-          rm -rf buildsrc
-          mkdir buildsrc
-          unzip -q "$ZIP" -d buildsrc
-          echo "APP_DIR=$(find buildsrc -mindepth 1 -maxdepth 1 -type d | head -1)" >> "$GITHUB_ENV"
-
       - name: Build debug APK
-        run: gradle -p "$APP_DIR" :app:assembleDebug
+        run: gradle -p expanded :app:assembleDebug
 
       - uses: actions/upload-artifact@v4
         with:
-          name: TheDailyBrief-v0.4.0-debug-apk
-          path: ${{ env.APP_DIR }}/app/build/outputs/apk/debug/app-debug.apk
+          name: TheDailyBrief-debug-apk
+          path: expanded/app/build/outputs/apk/debug/app-debug.apk
