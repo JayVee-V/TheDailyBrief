@@ -8,6 +8,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
+import android.view.WindowInsets;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -131,6 +132,17 @@ public class MainActivity extends Activity {
         LinearLayout tabs = new LinearLayout(this);
         tabs.setOrientation(LinearLayout.HORIZONTAL);
         tabs.setBackgroundColor(background);
+
+        // Android 15 enforces edge-to-edge for targetSdk 35. Keep our app chrome
+        // outside the status/navigation bar areas instead of letting the phone's
+        // system controls cover the header or bottom navigation.
+        root.setOnApplyWindowInsetsListener((v, insets) -> {
+            int topInset = insets.getSystemWindowInsetTop();
+            int bottomInset = insets.getSystemWindowInsetBottom();
+            bar.setPadding(dp(12), dp(6) + topInset, dp(6), dp(6));
+            tabs.setPadding(0, 0, 0, bottomInset);
+            return insets;
+        });
 
         Button morningTab = tabButton("Morning Brief");
         Button funniesTab = tabButton("Funnies & Puzzles");
