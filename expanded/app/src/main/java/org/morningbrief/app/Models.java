@@ -64,6 +64,7 @@ final class WeatherData {
     static final class Hour {
         String label = "";
         int temp;
+        int feelsLike;
         int rain;
         String condition = "";
     }
