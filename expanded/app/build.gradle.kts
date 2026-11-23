@@ -10,8 +10,8 @@ android {
         applicationId = "org.morningbrief.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 15
-        versionName = "0.7.0-test.2"
+        versionCode = 16
+        versionName = "0.7.0-test.3"
     }
 
     buildTypes {
