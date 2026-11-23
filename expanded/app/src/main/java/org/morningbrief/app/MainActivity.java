@@ -21,12 +21,14 @@ import android.widget.Toast;
 
 public class MainActivity extends Activity {
     private static final int PAGE_MORNING = 0;
-    private static final int PAGE_FUNNIES = 1;
+    private static final int PAGE_NATIONAL = 1;
     private static final int PAGE_WEEKEND = 2;
+    private static final int PAGE_FUNNIES = 3;
 
     private WebView web;
     private FunniesPuzzles funnies;
     private WeekendReading weekend;
+    private NationalNews national;
     private TextView title;
     private int currentPage = PAGE_MORNING;
     private ProgressBar progress;
@@ -127,6 +129,10 @@ public class MainActivity extends Activity {
         pages.addView(weekend.view(), new FrameLayout.LayoutParams(-1, -1));
         weekend.view().setVisibility(View.GONE);
 
+        national = new NationalNews(this, uiDark);
+        pages.addView(national.view(), new FrameLayout.LayoutParams(-1, -1));
+        national.view().setVisibility(View.GONE);
+
         root.addView(pages, new LinearLayout.LayoutParams(-1, 0, 1));
 
         LinearLayout tabs = new LinearLayout(this);
@@ -144,15 +150,18 @@ public class MainActivity extends Activity {
             return insets;
         });
 
-        Button morningTab = tabButton("Morning Brief");
-        Button funniesTab = tabButton("Funnies & Puzzles");
-        Button weekendTab = tabButton("Weekend Reading");
+        Button morningTab = tabButton("Local");
+        Button nationalTab = tabButton("National");
+        Button weekendTab = tabButton("Features");
+        Button funniesTab = tabButton("Leisure");
         tabs.addView(morningTab, new LinearLayout.LayoutParams(0, dp(58), 1));
-        tabs.addView(funniesTab, new LinearLayout.LayoutParams(0, dp(58), 1));
+        tabs.addView(nationalTab, new LinearLayout.LayoutParams(0, dp(58), 1));
         tabs.addView(weekendTab, new LinearLayout.LayoutParams(0, dp(58), 1));
+        tabs.addView(funniesTab, new LinearLayout.LayoutParams(0, dp(58), 1));
         root.addView(tabs);
 
         morningTab.setOnClickListener(v -> switchPage(PAGE_MORNING));
+        nationalTab.setOnClickListener(v -> switchPage(PAGE_NATIONAL));
         funniesTab.setOnClickListener(v -> switchPage(PAGE_FUNNIES));
         weekendTab.setOnClickListener(v -> switchPage(PAGE_WEEKEND));
 
@@ -171,21 +180,29 @@ public class MainActivity extends Activity {
     private void switchPage(int page) {
         currentPage = page;
         web.setVisibility(page == PAGE_MORNING ? View.VISIBLE : View.GONE);
+        national.view().setVisibility(page == PAGE_NATIONAL ? View.VISIBLE : View.GONE);
         funnies.view().setVisibility(page == PAGE_FUNNIES ? View.VISIBLE : View.GONE);
         weekend.view().setVisibility(page == PAGE_WEEKEND ? View.VISIBLE : View.GONE);
         if (page == PAGE_MORNING) {
             title.setText("THE MORNING BRIEF");
             loadCached();
+        } else if (page == PAGE_NATIONAL) {
+            title.setText("NATIONAL");
+            national.render();
         } else if (page == PAGE_FUNNIES) {
-            title.setText("FUNNIES & PUZZLES");
+            title.setText("LEISURE");
             funnies.render();
         } else {
-            title.setText("WEEKEND READING");
+            title.setText("FEATURES");
             weekend.render();
         }
     }
 
     private void showCurrentSettings() {
+        if (currentPage == PAGE_NATIONAL) {
+            national.showSettings();
+            return;
+        }
         if (currentPage == PAGE_FUNNIES) {
             funnies.showSettings();
             return;
@@ -216,6 +233,7 @@ public class MainActivity extends Activity {
             return;
         }
         if (currentPage == PAGE_MORNING) loadCached();
+        else if (currentPage == PAGE_NATIONAL) national.render();
         else if (currentPage == PAGE_FUNNIES) funnies.render();
         else weekend.render();
     }
