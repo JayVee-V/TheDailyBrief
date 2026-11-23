@@ -25,6 +25,7 @@ final class FunniesPuzzles {
     private static final String LOGIC_URL = "https://dailylogicpuzzles.com/";
 
     private final MainActivity activity;
+    private final ReaderStyle style;
     private final LinearLayout screen;
     private final int ink;
     private final int muted;
@@ -33,6 +34,7 @@ final class FunniesPuzzles {
 
     FunniesPuzzles(MainActivity activity, boolean dark) {
         this.activity = activity;
+        style = new ReaderStyle(activity,dark);
         ink = dark ? Color.rgb(240,239,232) : Color.rgb(17,17,17);
         muted = dark ? Color.rgb(184,184,176) : Color.rgb(88,88,82);
         background = dark ? Color.rgb(16,17,15) : Color.rgb(250,250,246);
@@ -52,9 +54,9 @@ final class FunniesPuzzles {
         scroll.setFillViewport(true);
         LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
-        column.setPadding(dp(16), dp(18), dp(16), dp(30));
+        column.setPadding(dp(16), dp(16), dp(16), dp(28));
 
-        TextView header = text("The back page", 27, true, ink);
+        TextView header = text("The back page", 26, true, ink);
         column.addView(header);
         TextView intro = text("A few things worth opening when the news can wait.", 14, false, muted);
         intro.setPadding(0, dp(5), 0, dp(20));
@@ -152,36 +154,7 @@ final class FunniesPuzzles {
     }
 
     private View card(String title, String eyebrow, String detail, String url) {
-        LinearLayout card = new LinearLayout(activity);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(16), dp(15), dp(16), dp(16));
-        card.setBackground(panelDrawable());
-
-        TextView source = text(eyebrow.toUpperCase(java.util.Locale.US), 11, true, muted);
-        source.setLetterSpacing(0.08f);
-        card.addView(source);
-
-        TextView headline = text(title, 21, true, ink);
-        headline.setPadding(0, dp(6), 0, dp(7));
-        card.addView(headline);
-
-        TextView description = text(detail, 14, false, muted);
-        description.setPadding(0, 0, 0, dp(12));
-        card.addView(description);
-
-        TextView open = text("OPEN  ›", 12, true, ink);
-        open.setLetterSpacing(0.06f);
-        card.addView(open);
-
-        View.OnClickListener launch = v -> open(url);
-        card.setOnClickListener(launch);
-        headline.setOnClickListener(launch);
-        open.setOnClickListener(launch);
-
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-        lp.bottomMargin = dp(12);
-        card.setLayoutParams(lp);
-        return card;
+        return style.card(eyebrow,title,detail,false,"Open",()->open(url),null,null);
     }
 
     private void open(String url) {
