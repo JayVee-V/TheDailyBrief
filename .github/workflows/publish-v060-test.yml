@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - '.release/v0.7.0-test.2'
+      - '.release/v0.7.0-test.3'
       - '.github/workflows/publish-v060-test.yml'
 
 permissions:
@@ -16,8 +16,8 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-      VERSION: "0.7.0-test.2"
-      TAG: "v0.7.0-test.2"
+      VERSION: "0.7.0-test.3"
+      TAG: "v0.7.0-test.3"
 
     steps:
       - uses: actions/checkout@v5
@@ -43,8 +43,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'versionName = "0.7.0-test.2"' expanded/app/build.gradle.kts
-          grep -q 'versionCode = 15' expanded/app/build.gradle.kts
+          grep -q 'versionName = "0.7.0-test.3"' expanded/app/build.gradle.kts
+          grep -q 'versionCode = 16' expanded/app/build.gradle.kts
 
       - name: Restore existing Android signing key
         shell: bash
@@ -117,4 +117,4 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "The Daily Brief $VERSION" \
             --prerelease \
-            --notes "Four-tab phone test. Signing certificate verified against v0.6.0-test.2."
+            --notes "National feed-reader repair, source diagnostics and cached edition protection. Signing certificate verified against v0.6.0-test.2."
