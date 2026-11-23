@@ -39,18 +39,20 @@ final class NationalNews {
     private final LinearLayout body;
     private final boolean dark;
     private final int ink, muted;
+    private final ReaderStyle style;
     private volatile boolean loading;
     private static final String[] DOMAINS = {"apnews.com/us-news", "npr.org", "pbs.org/newshour", "thehill.com", "propublica.org"};
     private volatile boolean attempted;
     NationalNews(Context context, boolean dark) {
         this.context = context; this.dark = dark;
-        ink = dark ? Color.WHITE : Color.rgb(25,25,25);
-        muted = dark ? 0xffb8b8b0 : 0xff666666;
+        style = new ReaderStyle(context,dark);
+        ink = style.ink; muted = style.muted;
         ScrollView scroll = new ScrollView(context);
         body = new LinearLayout(context);
         body.setOrientation(LinearLayout.VERTICAL);
-        body.setPadding(20, 14, 20, 40);
-        body.setBackgroundColor(dark ? 0xff10110f : 0xfffafaf6);
+        body.setPadding(style.dp(16), style.dp(16), style.dp(16), style.dp(28));
+        body.setBackgroundColor(style.paper);
+        scroll.setFillViewport(true);
         scroll.addView(body);
         this.scroll = scroll;
     }
@@ -66,70 +68,55 @@ final class NationalNews {
     }
     void render() {
         body.removeAllViews();
-        body.addView(text("NATIONAL", 30, true));
+        body.addView(style.text("National news", 26, true, ink));
         long updated = prefs().getLong("updated", 0);
         body.addView(text(updated == 0 ? "No edition yet" :
             "Edition updated " + new SimpleDateFormat("EEE, MMM d · h:mm a", Locale.US).format(new Date(updated))
             + (System.currentTimeMillis()-updated > 86400000L ? " · Cached / older edition" : ""), 12, false));
-        String status = prefs().getString("status", "");
-        if (!status.isEmpty()) body.addView(text(status, 12, false));
-        Button refresh = new Button(context); refresh.setText(loading ? "Updating…" : "Update edition");
-        refresh.setEnabled(!loading); refresh.setOnClickListener(v -> update()); body.addView(refresh);
+        if(loading) body.addView(style.text("Updating national edition…",13,false,muted));
         try {
             JSONArray entries = new JSONArray(prefs().getString("stories", "[]"));
-            if (entries.length()==0) body.addView(text("No national stories cached. Update to collect today's coverage.", 15, false));
-            for (int i=0;i<entries.length();i++) {
-                JSONObject item = entries.getJSONObject(i);
+            boolean lead=true;
+            for(int i=0;i<entries.length();i++){
+                JSONObject item=entries.getJSONObject(i);
                 final String url=item.optString("url");
-                if (i==0) body.addView(text("TOP STORY", 12, true));
-                TextView headline=text(item.optString("title"), i==0?23:18, true);
-                headline.setOnClickListener(v -> open(url));
-                body.addView(headline);
-                body.addView(text(item.optString("source") + (item.optString("also").isEmpty()?"":" · Also: "+item.optString("also")), 12, false));
-                Button save=new Button(context); save.setAllCaps(false); save.setText("Save for later");
-                save.setOnClickListener(v -> {
-                    try {
-                        JSONArray saved=new JSONArray(context.getSharedPreferences("national_saved",0).getString("items","[]"));
-                        for(int j=0;j<saved.length();j++) if(url.equals(saved.getJSONObject(j).optString("url"))) return;
-                        saved.put(item);
-                        context.getSharedPreferences("national_saved",0).edit().putString("items",saved.toString()).apply();
-                        android.widget.Toast.makeText(context,"Saved",android.widget.Toast.LENGTH_SHORT).show();
-                    } catch(Exception ignored){}
-                });
-                body.addView(save);
+                if(SavedNews.moved(context,url))continue;
+                String source=item.optString("source");
+                String also=item.optString("also");
+                String summary=item.optString("summary");
+                if(!also.isEmpty())summary+=(summary.isEmpty()?"":"\n\n")+"Also reporting: "+also;
+                body.addView(style.card(source,item.optString("title"),summary,lead,"Read",()->open(url),"Save",()->{
+                    if(SavedNews.save(context,item.optString("source"),item.optString("title"),item.optString("summary"),url,item.optLong("time"),"National")){
+                        android.widget.Toast.makeText(context,"Moved to Features",android.widget.Toast.LENGTH_SHORT).show();render();
+                    }else android.widget.Toast.makeText(context,"Unable to save article",android.widget.Toast.LENGTH_SHORT).show();
+                }));
+                lead=false;
             }
-        } catch(Exception ignored){}
+            if(lead&&!loading)body.addView(style.text("No stories in this edition. Use Settings to update or check sources.",16,false,muted));
+        }catch(Exception ignored){}
         if (updated==0 && !loading && !attempted) update();
     }
     private void open(String url) {
         try { context.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch(Exception ignored){}
     }
     void showSettings() {
+        new AlertDialog.Builder(context).setTitle("National settings")
+            .setItems(new String[]{"Choose sources",loading?"Updating…":"Update edition","Source diagnostics"},(dialog,which)->{
+                if(which==0)chooseSources();
+                else if(which==1)update();
+                else new AlertDialog.Builder(context).setTitle("Source diagnostics").setMessage(prefs().getString("status","No refresh completed yet.")).setPositiveButton("Close",null).show();
+            }).setNegativeButton("Cancel",null).show();
+    }
+    private void chooseSources(){
         boolean[] checked=new boolean[NAMES.length];
-        StringBuilder[] labels=new StringBuilder[NAMES.length];
         String[] options=new String[NAMES.length];
-        for(int i=0;i<NAMES.length;i++) {
-            checked[i]=prefs().getBoolean("source_"+i,true);
-            options[i]=NAMES[i]+" — "+NOTES[i];
-        }
-        new AlertDialog.Builder(context).setTitle("National sources")
-            .setMultiChoiceItems(options,checked,(d,which,on)->checked[which]=on)
+        for(int i=0;i<NAMES.length;i++){checked[i]=prefs().getBoolean("source_"+i,true);options[i]=NAMES[i]+" — "+NOTES[i];}
+        new AlertDialog.Builder(context).setTitle("National sources").setMultiChoiceItems(options,checked,(d,i,on)->checked[i]=on)
             .setPositiveButton("Save",(d,w)->{
                 android.content.SharedPreferences.Editor edit=prefs().edit();
-                for(int i=0;i<checked.length;i++) edit.putBoolean("source_"+i,checked[i]);
-                edit.apply(); update();
-            }).setNegativeButton("Cancel",null)
-            .setNeutralButton("Saved articles",(d,w)->showSaved()).show();
-    }
-    private void showSaved() {
-        try {
-            JSONArray saved=new JSONArray(context.getSharedPreferences("national_saved",0).getString("items","[]"));
-            String[] labels=new String[saved.length()];
-            for(int i=0;i<labels.length;i++) labels[i]=saved.getJSONObject(i).optString("title");
-            new AlertDialog.Builder(context).setTitle("Saved national articles")
-                .setItems(labels,(d,i)->open(saved.optJSONObject(i).optString("url")))
-                .setPositiveButton("Close",null).show();
-        } catch(Exception ignored){}
+                for(int i=0;i<checked.length;i++)edit.putBoolean("source_"+i,checked[i]);
+                edit.apply();update();
+            }).setNegativeButton("Cancel",null).show();
     }
     private void update() {
         if(loading)return;
@@ -167,7 +154,7 @@ final class NationalNews {
                         if(story.publishedEpoch>0 && System.currentTimeMillis()-story.publishedEpoch>4L*86400000L) continue;
                         try {
                             JSONObject o=new JSONObject();
-                            o.put("title",story.title); o.put("url",story.url);
+                            o.put("title",story.title); o.put("url",story.url); o.put("summary",story.summary);
                             o.put("source",source+(fallback?" (via Google News)":""));
                             o.put("time",story.publishedEpoch);
                             synchronized(found){found.add(o);}
