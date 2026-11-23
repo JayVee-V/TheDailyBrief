@@ -13,10 +13,6 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.w3c.dom.*;
-import javax.xml.parsers.DocumentBuilderFactory;
-import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.Executors;
@@ -26,14 +22,14 @@ final class NationalNews {
     private static final String PREF = "national_edition_v1";
     private static final String[] NAMES = {"Associated Press", "NPR", "PBS NewsHour", "The Hill", "ProPublica"};
     private static final String[] URLS = {
-        "https://feedx.net/rss/ap.xml",
-        "https://feeds.npr.org/1001/rss.xml",
+        "https://news.google.com/rss/search?q=site%3Aapnews.com%2Fus-news+when%3A3d&hl=en-US&gl=US&ceid=US%3Aen",
+        "https://feeds.npr.org/1003/rss.xml",
         "https://www.pbs.org/newshour/feeds/rss/headlines",
         "https://thehill.com/feed/",
         "https://www.propublica.org/feeds/propublica/main"
     };
     private static final String[] NOTES = {
-        "US and general news; third-party AP feed, availability may vary",
+        "US news from AP via Google News",
         "Public radio reporting and national affairs",
         "Public-service journalism and national reporting",
         "Washington, Congress and federal policy",
@@ -44,6 +40,8 @@ final class NationalNews {
     private final boolean dark;
     private final int ink, muted;
     private volatile boolean loading;
+    private static final String[] DOMAINS = {"apnews.com/us-news", "npr.org", "pbs.org/newshour", "thehill.com", "propublica.org"};
+    private volatile boolean attempted;
     NationalNews(Context context, boolean dark) {
         this.context = context; this.dark = dark;
         ink = dark ? Color.WHITE : Color.rgb(25,25,25);
@@ -73,6 +71,8 @@ final class NationalNews {
         body.addView(text(updated == 0 ? "No edition yet" :
             "Edition updated " + new SimpleDateFormat("EEE, MMM d · h:mm a", Locale.US).format(new Date(updated))
             + (System.currentTimeMillis()-updated > 86400000L ? " · Cached / older edition" : ""), 12, false));
+        String status = prefs().getString("status", "");
+        if (!status.isEmpty()) body.addView(text(status, 12, false));
         Button refresh = new Button(context); refresh.setText(loading ? "Updating…" : "Update edition");
         refresh.setEnabled(!loading); refresh.setOnClickListener(v -> update()); body.addView(refresh);
         try {
@@ -99,7 +99,7 @@ final class NationalNews {
                 body.addView(save);
             }
         } catch(Exception ignored){}
-        if (updated==0 && !loading) update();
+        if (updated==0 && !loading && !attempted) update();
     }
     private void open(String url) {
         try { context.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch(Exception ignored){}
@@ -134,30 +134,53 @@ final class NationalNews {
     private void update() {
         if(loading)return;
         loading=true;
-        body.addView(text("Checking national sources…",13,false));
-        Executors.newSingleThreadExecutor().execute(()->{
+        attempted=true;
+        render();
+        final java.util.concurrent.ExecutorService worker = Executors.newSingleThreadExecutor();
+        worker.execute(()->{
             ArrayList<JSONObject> found=new ArrayList<>();
+            ArrayList<String> diagnostics=new ArrayList<>();
+            java.util.concurrent.ExecutorService feeds=Executors.newFixedThreadPool(URLS.length);
+            ArrayList<java.util.concurrent.Future<String>> jobs=new ArrayList<>();
             for(int i=0;i<URLS.length;i++) {
                 if(!prefs().getBoolean("source_"+i,true))continue;
-                try {
-                    String xml=Net.getString(URLS[i], 1_000_000);
-                    DocumentBuilderFactory f=DocumentBuilderFactory.newInstance();
-                    f.setFeature("http://apache.org/xml/features/disallow-doctype-decl",true);
-                    f.setFeature("http://xml.org/sax/features/external-general-entities",false);
-                    Document doc=f.newDocumentBuilder().parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
-                    NodeList nodes=doc.getElementsByTagName("item");
-                    for(int j=0;j<Math.min(nodes.getLength(),35);j++) {
-                        Element el=(Element)nodes.item(j);
-                        String title=child(el,"title"),url=child(el,"link");
-                        if(title.isEmpty()||!url.startsWith("http"))continue;
-                        String date=child(el,"pubDate");
-                        long timestamp=System.currentTimeMillis();
-                        try { timestamp=new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z",Locale.US).parse(date).getTime(); } catch(Exception ignored){}
-                        if(timestamp < System.currentTimeMillis()-3L*86400000L)continue;
-                        JSONObject o=new JSONObject();o.put("title",title);o.put("url",url);o.put("source",NAMES[i]);o.put("time",timestamp);
-                        found.add(o);
+                final int index=i;
+                jobs.add(feeds.submit(()->{
+                    String source=NAMES[index];
+                    String failure="";
+                    List<Story> stories=Collections.emptyList();
+                    boolean fallback=index==0;
+                    try {
+                        stories=FeedReader.read(new SourceConfig(source,URLS[index],"","direct"));
+                    } catch(Exception e) { failure=e.getClass().getSimpleName()+": "+e.getMessage(); }
+                    if(stories.isEmpty() && index!=0) {
+                        try {
+                            String query=java.net.URLEncoder.encode("site:"+DOMAINS[index]+" US when:3d","UTF-8");
+                            String url="https://news.google.com/rss/search?q="+query+"&hl=en-US&gl=US&ceid=US%3Aen";
+                            stories=FeedReader.read(new SourceConfig(source,url,"","direct"));
+                            fallback=true;
+                        } catch(Exception e) { failure=e.getClass().getSimpleName()+": "+e.getMessage(); }
                     }
-                }catch(Exception ignored){}
+                    int accepted=0;
+                    for(Story story:stories) {
+                        if(story.url==null || !story.url.startsWith("https://")) continue;
+                        if(story.publishedEpoch>0 && System.currentTimeMillis()-story.publishedEpoch>4L*86400000L) continue;
+                        try {
+                            JSONObject o=new JSONObject();
+                            o.put("title",story.title); o.put("url",story.url);
+                            o.put("source",source+(fallback?" (via Google News)":""));
+                            o.put("time",story.publishedEpoch);
+                            synchronized(found){found.add(o);}
+                            if(++accepted>=35)break;
+                        } catch(Exception ignored){}
+                    }
+                    return source+": "+accepted+" stories"+(accepted==0&&!failure.isEmpty()?" ("+failure+")":fallback?" (Google News)":"");
+                }));
+            }
+            feeds.shutdown();
+            for(java.util.concurrent.Future<String> job:jobs) {
+                try { diagnostics.add(job.get()); }
+                catch(Exception e) { diagnostics.add("Source failed: "+e.getMessage()); }
             }
             found.sort((a,b)->Long.compare(b.optLong("time"),a.optLong("time")));
             JSONArray result=new JSONArray();
@@ -177,13 +200,12 @@ final class NationalNews {
                 }
                 if(!duplicate && result.length()<25) {result.put(item);tokens.add(normalized);}
             }
-            prefs().edit().putString("stories",result.toString()).putLong("updated",System.currentTimeMillis()).apply();
+            android.content.SharedPreferences.Editor edit=prefs().edit();
+            if(result.length()>0) edit.putString("stories",result.toString()).putLong("updated",System.currentTimeMillis());
+            edit.putString("status",(result.length()==0?"No new stories retrieved; retaining cached edition.":"Sources checked:") + "\n"+String.join("\n",diagnostics)).apply();
             loading=false;
             ((android.app.Activity)context).runOnUiThread(this::render);
         });
-    }
-    private static String child(Element el,String tag) {
-        NodeList list=el.getElementsByTagName(tag);
-        return list.getLength()==0?"":list.item(0).getTextContent().trim();
+        worker.shutdown();
     }
 }
