@@ -172,10 +172,12 @@ final class WeekendReading {
     private final int ink;
     private final int muted;
     private final int background;
+    private final ReaderStyle style;
     private boolean busy = false;
 
     WeekendReading(MainActivity activity, boolean dark) {
         this.activity = activity;
+        style = new ReaderStyle(activity,dark);
         ink = dark ? Color.rgb(240,239,232) : Color.rgb(17,17,17);
         muted = dark ? Color.rgb(184,184,176) : Color.rgb(88,88,82);
         background = dark ? Color.rgb(16,17,15) : Color.rgb(250,250,246);
@@ -314,57 +316,33 @@ final class WeekendReading {
         TextView header = text("Your reading shelf", 26, true, ink);
         column.addView(header);
         List<Card> list = cards();
-        TextView help = text(list.size() + " articles waiting · Your choices, your pace", 13, false, muted);
+        List<JSONObject> saved = SavedNews.items(activity);
+        java.util.Set<String> savedKeys=new java.util.HashSet<>();
+        for(JSONObject item:saved)savedKeys.add(SavedNews.key(item.optString("url")));
+        list.removeIf(c->savedKeys.contains(SavedNews.key(c.url)));
+        TextView help = text((list.size()+saved.size()) + " articles waiting · Your choices, your pace", 13, false, muted);
         help.setPadding(0, dp(6), 0, dp(20));
         column.addView(help);
 
-        if (list.isEmpty()) {
+        if (list.isEmpty() && saved.isEmpty()) {
             TextView empty = text("Nothing on your shelf yet. Select a few sources, then collect articles to read whenever you like.", 16, false, muted);
             empty.setPadding(dp(12), dp(24), dp(12), dp(24));
             empty.setBackground(panel(uiPanel()));
             column.addView(empty);
         }
-        for (Card c : list) {
-            LinearLayout card = new LinearLayout(activity);
-            card.setOrientation(LinearLayout.VERTICAL);
-            card.setPadding(dp(16), dp(12), dp(12), dp(14));
-            card.setBackground(panel(uiPanel()));
-            LinearLayout heading = new LinearLayout(activity);
-            heading.setGravity(Gravity.TOP | Gravity.CENTER_VERTICAL);
-            TextView source = text(c.source.toUpperCase(java.util.Locale.US), 11, true, muted);
-            source.setLetterSpacing(0.08f);
-            heading.addView(source, new LinearLayout.LayoutParams(0, dp(36), 1));
-            TextView close = text("×", 28, false, muted);
-            close.setContentDescription("Dismiss " + c.title);
-            close.setGravity(Gravity.CENTER);
-            close.setOnClickListener(v -> dismiss(c));
-            heading.addView(close, new LinearLayout.LayoutParams(dp(44), dp(44)));
-            card.addView(heading);
-
-            TextView headline = text(c.title, 20, true, ink);
-            headline.setLineSpacing(dp(2), 1.0f);
-            headline.setPadding(0, 0, dp(8), dp(8));
-            headline.setOnClickListener(v -> openArticle(c));
-            card.addView(headline);
-
-            String brief = c.summary == null ? "" : c.summary;
-            if (brief.length() > 210) brief = brief.substring(0, 207) + "…";
-            if (!brief.isEmpty()) {
-                TextView summary = text(brief, 14, false, muted);
-                summary.setLineSpacing(dp(2), 1.0f);
-                summary.setPadding(0, 0, dp(8), dp(12));
-                summary.setOnClickListener(v -> openArticle(c));
-                card.addView(summary);
-            }
-            TextView read = text("READ ARTICLE  ›", 12, true, ink);
-            read.setLetterSpacing(0.06f);
-            read.setPadding(0, dp(2), 0, dp(3));
-            read.setOnClickListener(v -> openArticle(c));
-            card.addView(read);
-            column.addView(card);
-            LinearLayout.LayoutParams cardLayout = (LinearLayout.LayoutParams) card.getLayoutParams();
-            cardLayout.bottomMargin = dp(12);
-            card.setLayoutParams(cardLayout);
+        for(JSONObject item:saved){
+            String url=item.optString("url");
+            column.addView(style.card("Saved from "+item.optString("section")+" · "+item.optString("source"),
+                item.optString("title"),item.optString("summary"),false,"Read",()->{
+                    openArticle(new Card(item.optString("source"),item.optString("title"),item.optString("summary"),url,item.optLong("date")));
+                },"Close",()->{
+                    SavedNews.close(activity,url);
+                    List<Card> remaining=cards();remaining.removeIf(c->SavedNews.key(c.url).equals(SavedNews.key(url)));saveCards(remaining);
+                    Set<String> ids=dismissed();ids.add(id(url));saveDismissed(ids);render();
+                }));
+        }
+        for(Card c:list){
+            column.addView(style.card(c.source,c.title,c.summary,false,"Read",()->openArticle(c),"Close",()->dismiss(c)));
         }
         sc.addView(column);
         screen.addView(sc, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -537,7 +515,7 @@ final class WeekendReading {
                         if(fromFeed >= MAX_NEW_PER_FEED)break;
                         if(st.url==null||!st.url.startsWith("http"))continue;
                         if(st.publishedEpoch > 0 && now-st.publishedEpoch > MAX_INITIAL_AGE_MS)continue;
-                        String key=id(st.url);if(seen.contains(key))continue;
+                        String key=id(st.url);if(seen.contains(key)||SavedNews.moved(activity,st.url))continue;
                         seen.add(key);
                         list.add(new Card(st.source,st.title,st.summary,st.url,st.publishedEpoch));
                         fromFeed++; added++;
