@@ -44,6 +44,7 @@ public class MainActivity extends Activity {
             finish();
             return;
         }
+        SavedNews.migrate(this);
         buildUi();
         loadCached();
         Scheduler.ensureScheduled(this);
@@ -108,7 +109,18 @@ public class MainActivity extends Activity {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
                 if (uri == null) return false;
-                if ("morningbrief.local".equals(uri.getHost())) return false;
+                if ("morningbrief.local".equals(uri.getHost())) {
+                    if ("/save".equals(uri.getPath())) {
+                        long date=0;
+                        try {date=Long.parseLong(uri.getQueryParameter("date"));}catch(Exception ignored){}
+                        boolean saved=SavedNews.save(MainActivity.this,uri.getQueryParameter("source"),uri.getQueryParameter("title"),
+                            uri.getQueryParameter("summary"),uri.getQueryParameter("url"),date,"Local");
+                        Toast.makeText(MainActivity.this,saved?"Moved to Features":"Unable to save article",Toast.LENGTH_SHORT).show();
+                        if(saved)loadCached();
+                        return true;
+                    }
+                    return false;
+                }
                 try {
                     startActivity(new Intent(Intent.ACTION_VIEW, uri));
                     return true;
@@ -240,6 +252,17 @@ public class MainActivity extends Activity {
 
     private void loadCached() {
         String html = SettingsStore.readCachedEdition(this);
+        // Upgrade the previous edition in place, without refetching or losing already shown stories.
+        if (!html.contains("class='actions'") && html.contains("class='lead-copy'")) {
+            try {
+                java.util.List<Story> previous=SettingsStore.loadStoryCache(this);
+                if(!previous.isEmpty()){
+                    html=EditionBuilder.build(SettingsStore.getLocation(this),SettingsStore.loadWeatherCache(this),previous,
+                        !html.contains(" · CACHED"),SettingsStore.lastRefresh(this),SettingsStore.theme(this));
+                    SettingsStore.writeCachedEdition(this,html);
+                }
+            }catch(Exception ignored){}
+        }
         cachedSupportsTheme = html.contains("theme-") && html.contains("--page:");
         if (html.trim().isEmpty()) {
             boolean dark = SettingsStore.useDark(this);
@@ -251,7 +274,7 @@ public class MainActivity extends Activity {
             String desired = SettingsStore.theme(this);
             html = html.replaceFirst("<html class='theme-(?:system|light|dark)'>", "<html class='theme-" + desired + "'>");
         }
-        web.loadDataWithBaseURL("https://morningbrief.local/", html, "text/html", "UTF-8", null);
+        web.loadDataWithBaseURL("https://morningbrief.local/", SavedNews.hideMoved(this,html), "text/html", "UTF-8", null);
     }
 
     private void refresh(boolean userRequested) {
@@ -264,7 +287,7 @@ public class MainActivity extends Activity {
                         runOnUiThread(() -> showProgress(status, percent)));
                 runOnUiThread(() -> {
                     cachedSupportsTheme = true;
-                    web.loadDataWithBaseURL("https://morningbrief.local/", r.html, "text/html", "UTF-8", null);
+                    web.loadDataWithBaseURL("https://morningbrief.local/", SavedNews.hideMoved(this,r.html), "text/html", "UTF-8", null);
                     if (userRequested || r.failedSources > 0 || !r.weatherFresh) {
                         String msg = "Updated · " + r.storyCount + " stories";
                         if (r.failedSources > 0) msg += " · " + r.failedSources + " feed(s) unavailable";
