@@ -171,7 +171,7 @@ final class NationalNews {
                     Set<String> overlap=new HashSet<>(words);overlap.retainAll(prior);
                     if(overlap.size()>=4 && overlap.size()>=Math.min(words.size(),prior.size())*0.65) {
                         JSONObject original=result.optJSONObject(j);
-                        original.put("also",original.optString("also").isEmpty()?item.optString("source"):original.optString("also")+", "+item.optString("source"));
+                        try { original.put("also",original.optString("also").isEmpty()?item.optString("source"):original.optString("also")+", "+item.optString("source")); } catch(Exception ignored) {}
                         duplicate=true;break;
                     }
                 }
