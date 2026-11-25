@@ -14,6 +14,7 @@ public class MorningJobService extends JobService {
                         finally { DailyRefresh.end(DailyRefresh.LOCAL); }
                     }
                     NationalNews.refreshScheduled(this);
+                    ComicEdition.refresh(getApplicationContext(),false);
                 }
             } catch (Exception ignored) {
                 // No automatic retry until the next edition day.
