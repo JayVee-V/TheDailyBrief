@@ -42,6 +42,7 @@ final class FunniesPuzzles {
     private final ReaderStyle style;
     private final LinearLayout screen;
     private boolean busy;
+    private ScrollView pageScroll;
     FunniesPuzzles(MainActivity activity,boolean dark){
         this.activity=activity;style=new ReaderStyle(activity,dark);
         screen=new LinearLayout(activity);screen.setOrientation(LinearLayout.VERTICAL);
@@ -73,8 +74,9 @@ final class FunniesPuzzles {
         },"daily-comics").start();
     }
     private void draw(){
+        int oldY=pageScroll==null?0:pageScroll.getScrollY();
         screen.removeAllViews();
-        ScrollView scroll=new ScrollView(activity);scroll.setFillViewport(true);
+        ScrollView scroll=new ScrollView(activity);scroll.setFillViewport(true);pageScroll=scroll;
         LinearLayout column=new LinearLayout(activity);column.setOrientation(LinearLayout.VERTICAL);
         column.setPadding(dp(16),dp(16),dp(16),dp(28));
         TextView heading=style.text("THE BACK PAGE",28,true,style.ink);heading.setGravity(Gravity.CENTER);column.addView(heading);
@@ -92,7 +94,7 @@ final class FunniesPuzzles {
                 String status=ComicEdition.status(activity,s);
                 if(items.length()==0){
                     String detail=status.isEmpty()?(busy?"Checking for new strips…":"No strip collected yet."):status;
-                    column.addView(style.card("Comic strip",s.name,detail,false,"Visit comic",()->open(s.home),null,null));
+                    column.addView(style.card("Comic strip",s.name,detail,false,"Read comic",()->readComic(s.name,s.home,null),null,null));
                 }else{
                     boolean cached=!today.equals(ComicEdition.edition(activity,s));
                     for(int i=0;i<items.length();i++){
@@ -112,6 +114,7 @@ final class FunniesPuzzles {
             TextView empty=style.text("Choose comics and puzzles in Settings.",16,false,style.muted);column.addView(empty);
         }
         scroll.addView(column);screen.addView(scroll,new LinearLayout.LayoutParams(-1,-1));
+        if(oldY>0)scroll.post(()->scroll.scrollTo(0,oldY));
     }
     private View comicCard(ComicEdition.Source s,JSONObject o,boolean cached){
         LinearLayout card=new LinearLayout(activity);card.setOrientation(LinearLayout.VERTICAL);
@@ -126,10 +129,10 @@ final class FunniesPuzzles {
             if(bitmap!=null){
                 ImageView image=new ImageView(activity);image.setAdjustViewBounds(true);image.setScaleType(ImageView.ScaleType.FIT_CENTER);
                 image.setImageBitmap(bitmap);image.setContentDescription("Comic by "+s.name);
-                image.setOnClickListener(v->open(url));card.addView(image,new LinearLayout.LayoutParams(-1,-2));
+                image.setOnClickListener(v->readComic(s.name,url,file));card.addView(image,new LinearLayout.LayoutParams(-1,-2));
             }
         }
-        TextView read=style.action("Read on original site",()->open(url));
+        TextView read=style.action("Read comic",()->readComic(s.name,url,file));
         LinearLayout.LayoutParams action=new LinearLayout.LayoutParams(-1,dp(44));action.topMargin=dp(12);card.addView(read,action);
         LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.bottomMargin=dp(12);card.setLayoutParams(p);return card;
     }
@@ -172,6 +175,51 @@ final class FunniesPuzzles {
         check.setButtonTintList(new ColorStateList(new int[][]{new int[]{android.R.attr.state_checked},new int[]{}},new int[]{style.ink,style.muted}));
         check.setOnCheckedChangeListener((b,on)->prefs().edit().putBoolean(key,on).apply());
         row.addView(check,new LinearLayout.LayoutParams(dp(48),dp(48)));copy.setOnClickListener(v->check.setChecked(!check.isChecked()));list.addView(row);
+    }
+    /** Modal reader leaves the back page and its scroll position intact. */
+    private void readComic(String name,String url,File image){
+        android.app.Dialog dialog=new android.app.Dialog(activity,android.R.style.Theme_Material_NoActionBar);
+        LinearLayout layout=new LinearLayout(activity);layout.setOrientation(LinearLayout.VERTICAL);layout.setBackgroundColor(style.paper);
+        LinearLayout bar=new LinearLayout(activity);bar.setGravity(Gravity.CENTER_VERTICAL);bar.setPadding(dp(12),dp(8),dp(12),dp(8));
+        bar.addView(style.action("‹ Back to Leisure",dialog::dismiss),new LinearLayout.LayoutParams(0,dp(48),1));
+        LinearLayout.LayoutParams linkParams=new LinearLayout.LayoutParams(-2,dp(48));linkParams.leftMargin=dp(8);
+        bar.addView(style.action("Website",()->open(url)),linkParams);layout.addView(bar);
+        TextView title=style.text(name,18,true,style.ink);title.setPadding(dp(16),0,dp(16),dp(8));layout.addView(title);
+        android.webkit.WebView reader=new android.webkit.WebView(activity);
+        reader.setBackgroundColor(style.paper);
+        reader.getSettings().setAllowFileAccess(false);
+        reader.getSettings().setAllowContentAccess(false);
+        reader.getSettings().setBuiltInZoomControls(true);
+        reader.getSettings().setDisplayZoomControls(false);
+        reader.getSettings().setSupportZoom(true);
+        reader.getSettings().setUseWideViewPort(true);
+        reader.getSettings().setLoadWithOverviewMode(true);
+        reader.getSettings().setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        reader.setWebViewClient(new android.webkit.WebViewClient(){
+            @Override public boolean shouldOverrideUrlLoading(android.webkit.WebView v,android.webkit.WebResourceRequest req){
+                String scheme=req.getUrl().getScheme();return !"https".equals(scheme)&&!"http".equals(scheme);
+            }
+        });
+        layout.addView(reader,new LinearLayout.LayoutParams(-1,0,1));
+        dialog.setContentView(layout);
+        dialog.setOnDismissListener(d->{reader.stopLoading();reader.destroy();});
+        dialog.show();
+        if(dialog.getWindow()!=null){
+            dialog.getWindow().setLayout(-1,-1);
+            dialog.getWindow().setStatusBarColor(style.paper);
+            dialog.getWindow().setNavigationBarColor(style.paper);
+        }
+        if(image!=null){
+            try{
+                String data=android.util.Base64.encodeToString(java.nio.file.Files.readAllBytes(image.toPath()),android.util.Base64.NO_WRAP);
+                String bg=String.format(Locale.US,"#%06X",style.paper&0xffffff);
+                reader.loadDataWithBaseURL("https://morningbrief.local/","<html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='margin:0;background:"+bg+"'><img style='display:block;width:100%;height:auto' src='data:image/png;base64,"+data+"'></body></html>","text/html","UTF-8",null);
+                return;
+            }catch(Exception ignored){}
+        }
+        reader.getSettings().setJavaScriptEnabled(true);
+        reader.getSettings().setDomStorageEnabled(true);
+        reader.loadUrl(url);
     }
     private void open(String url){
         try{activity.startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url)));}
