@@ -105,13 +105,14 @@ final class ComicEdition {
         File target=null;
         try{
             URL url=new URL(new URL(st.url),st.imageUrl);
+            if("http".equals(url.getProtocol()))url=new URL("https",url.getHost(),url.getFile());
             if(!"https".equals(url.getProtocol()))return "";
             byte[] bytes=Net.getBytes(url.toString(),8_000_000);
             BitmapFactory.Options bounds=new BitmapFactory.Options();bounds.inJustDecodeBounds=true;
             BitmapFactory.decodeByteArray(bytes,0,bytes.length,bounds);
             if(bounds.outWidth<=0||bounds.outHeight<=0)return "";
             BitmapFactory.Options opts=new BitmapFactory.Options();opts.inSampleSize=1;
-            while((long)(bounds.outWidth/opts.inSampleSize)*(bounds.outHeight/opts.inSampleSize)>4_000_000L)opts.inSampleSize*=2;
+            while((long)(bounds.outWidth/opts.inSampleSize)*(bounds.outHeight/opts.inSampleSize)>1_600_000L)opts.inSampleSize*=2;
             Bitmap image=BitmapFactory.decodeByteArray(bytes,0,bytes.length,opts);
             if(image==null)return "";
             String name=s.id+"_"+Integer.toHexString(st.url.hashCode())+".png";
