@@ -34,6 +34,7 @@ final class FunniesPuzzles {
         new Game("sudoku","Sudoku","Daily Logic Puzzles","Three daily difficulty levels.","https://dailylogicpuzzles.com/sudoku/",true),
         new Game("nonogram","Nonogram","Daily Logic Puzzles","Reveal a picture using row and column clues.","https://dailylogicpuzzles.com/nonogram/",true),
         new Game("minesweeper","Minesweeper","Daily Logic Puzzles","Deduce the locations of hidden mines.","https://dailylogicpuzzles.com/minesweeper/",true),
+        new Game("waffle","Waffle","Waffle Studio","Swap letters to complete a grid of words.","https://wafflegame.net/daily",false),
         new Game("worldle","Worldle","Teuteuf Games","Identify a country by its silhouette.","https://worldle.teuteuf.fr/",false),
         new Game("chess","Daily Chess Puzzle","Lichess","Find the best moves in a tactical position.","https://lichess.org/training/daily",false)
     };
