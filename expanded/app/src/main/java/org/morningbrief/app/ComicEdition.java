@@ -23,13 +23,23 @@ final class ComicEdition {
         }
     }
     static final Source[] SOURCES={
-        new Source("penny","Penny Arcade","Video games and geek culture.","https://www.penny-arcade.com/rss.xml","https://www.penny-arcade.com/comic","/comic/",true,true),
-        new Source("cad","Ctrl+Alt+Del","Gaming humor and continuing stories; opens the public comic page.","https://cad-comic.com/feed/","https://cad-comic.com/comic/","/comic/",true,false),
+        new Source("penny","Penny Arcade","Video games and geek culture.","https://www.penny-arcade.com/feed","https://www.penny-arcade.com/comic","/comic/",true,true),
+        new Source("cad","Ctrl+Alt+Del","Gaming humor and continuing stories.","https://cad-comic.com/feed/","https://cad-comic.com/comic/","/comic/",true,true),
         new Source("sam","Sam & Fuzzy","Sam Logan's character-driven comedy and adventure.","https://www.samandfuzzy.com/feed","https://www.samandfuzzy.com/","",true,true),
         new Source("awkward","Awkward Zombie","Video-game jokes and familiar gaming franchises.","https://www.awkwardzombie.com/awkward-zombie/rss","https://www.awkwardzombie.com/","",false,true),
         new Source("xkcd","xkcd","Science, technology and dry humor.","https://xkcd.com/rss.xml","https://xkcd.com/","",false,true),
         new Source("smbc","Saturday Morning Breakfast Cereal","Science, philosophy and absurdity.","https://www.smbc-comics.com/comic/rss","https://www.smbc-comics.com/","",false,true),
-        new Source("loading","Loading Artist","Everyday absurdity and visual comedy.","https://loadingartist.com/index.xml","https://loadingartist.com/","/comic/",false,true)
+        new Source("pdl","Poorly Drawn Lines","Absurd conversations and surreal humor.","https://poorlydrawnlines.com/feed/","https://poorlydrawnlines.com/","/comic/",false,true),
+        new Source("dinosaur","Dinosaur Comics","Talking dinosaurs and philosophical comedy.","https://qwantz.com/rssfeed.php","https://qwantz.com/","",false,true),
+        new Source("nerf","Nerf NOW!!","Video games and online culture.","https://feeds.feedburner.com/nerfnow/full","https://www.nerfnow.com/","/comic/",false,true),
+        new Source("qc","Questionable Content","Relationships, work and robots.","https://www.questionablecontent.net/QCRSS.xml","https://www.questionablecontent.net/","",false,true),
+        new Source("doa","Dumbing of Age","College life and interpersonal comedy.","https://www.dumbingofage.com/feed/","https://www.dumbingofage.com/","/comic/",false,true),
+        new Source("sheldon","Sheldon","Family, animals and pop culture.","https://www.sheldoncomics.com/feed/atom/","https://www.sheldoncomics.com/","",false,true),
+        new Source("buni","Buni","Wordless dark and silly animal humor.","https://www.bunicomic.com/feed/","https://www.bunicomic.com/","",false,true),
+        new Source("buttersafe","Buttersafe","Offbeat short comics.","https://www.buttersafe.com/feed/","https://www.buttersafe.com/","",false,true),
+        new Source("sandra","Sandra and Woo","A girl, a raccoon and their adventures.","https://www.sandraandwoo.com/feed/atom/","https://www.sandraandwoo.com/","",false,true),
+        new Source("jen","Jen Sorensen","Editorial and political cartoons.","https://jensorensen.ghost.io/rss/","https://jensorensen.ghost.io/","",false,false),
+        new Source("gunner","Gunnerkrigg Court","Science-fantasy adventure and character humor.","https://gunnerkrigg.com/rss.xml","https://gunnerkrigg.com/","",false,true)
     };
     private ComicEdition(){}
     private static SharedPreferences prefs(Context c){return SettingsStore.prefs(c);}
@@ -59,7 +69,7 @@ final class ComicEdition {
             try{feed=FeedReader.read(new SourceConfig(s.name,s.feed,s.home,"direct"));}
             catch(Exception first){
                 if(!"penny".equals(s.id))throw first;
-                feed=FeedReader.read(new SourceConfig(s.name,"https://www.penny-arcade.com/feed",s.home,"direct"));
+                feed=FeedReader.read(new SourceConfig(s.name,"https://www.penny-arcade.com/rss.xml",s.home,"direct"));
             }
             if(feed.isEmpty())throw new Exception("Feed returned no entries");
             JSONArray old=items(c,s);
@@ -67,11 +77,13 @@ final class ComicEdition {
             List<Story> candidates=new ArrayList<>();
             Set<String> unique=new HashSet<>();
             for(Story st:feed){
-                if(st.url==null||!st.url.startsWith("https://"))continue;
+                if(st.url==null)continue;
+                if(st.url.startsWith("http://"))st.url="https://"+st.url.substring(7);
+                if(!st.url.startsWith("https://"))continue;
                 String path=android.net.Uri.parse(st.url).getPath();
                 if(path==null||(!s.match.isEmpty()&&!path.contains(s.match)))continue;
                 if("sam".equals(s.id)&&!path.matches("/[0-9]+/?"))continue;
-                String key=SavedNews.key(st.url);
+                String key=comicKey(st.url);
                 if(key.isEmpty()||seen.contains(key)||!unique.add(key))continue;
                 candidates.add(st);
             }
@@ -81,15 +93,23 @@ final class ComicEdition {
             else if(candidates.size()>5)candidates=new ArrayList<>(candidates.subList(0,5));
             Collections.reverse(candidates);
             JSONArray result=today.equals(edition(c,s))?old:new JSONArray();
+            // Repair a previously collected link-only strip when manually requested.
+            if(manual&&s.inline)for(int i=0;i<result.length();i++){
+                JSONObject o=result.optJSONObject(i);
+                if(o!=null&&imageFile(c,o.optString("file"))==null){
+                    Story prior=new Story();prior.url=o.optString("url");prior.title=o.optString("title");
+                    o.put("file",cacheImage(c,s,prior));
+                }
+            }
             for(Story st:candidates){
                 JSONObject o=new JSONObject();
                 o.put("title",st.title);o.put("url",st.url);o.put("time",st.publishedEpoch);
                 String image=s.inline?cacheImage(c,s,st):"";
-                o.put("file",image);result.put(o);seen.add(SavedNews.key(st.url));
+                o.put("file",image);result.put(o);seen.add(comicKey(st.url));
             }
             // Mark the initial feed backlog as already seen, not as new tomorrow.
-            if(prefs(c).getStringSet("comic_seen_"+s.id,Collections.emptySet()).isEmpty())
-                for(Story st:feed)if(st.url!=null&&st.url.startsWith("https://"))seen.add(SavedNews.key(st.url));
+            if(!candidates.isEmpty()&&prefs(c).getStringSet("comic_seen_"+s.id,Collections.emptySet()).isEmpty())
+                for(Story st:feed)if(st.url!=null&&st.url.startsWith("https://"))seen.add(comicKey(st.url));
             // Keep the previous edition intact until successful collection; remove outdated image files afterwards.
             boolean committed=prefs(c).edit().putString("comic_items_"+s.id,result.toString())
                 .putString("comic_edition_"+s.id,today).putStringSet("comic_seen_"+s.id,seen)
@@ -99,8 +119,43 @@ final class ComicEdition {
             prefs(c).edit().putString("comic_status_"+s.id,"Feed unavailable; open the original site.").apply();
         }finally{DailyRefresh.end(section);}
     }
+    private static String comicKey(String url){
+        android.net.Uri u=android.net.Uri.parse(url);
+        // Some comic archives use query parameters as the strip identifier.
+        return SavedNews.key(url)+(u.getEncodedQuery()==null?"":"?"+u.getEncodedQuery());
+    }
+
+    /** Only recognize comic-specific image paths, not arbitrary page logos or adverts. */
+    private static String publicComicImage(Source source,String page){
+        try{
+            String html=Net.getString(page,1_600_000);
+            java.util.regex.Matcher tags=java.util.regex.Pattern.compile("(?is)<img\\b[^>]*>").matcher(html);
+            while(tags.find()){
+                String tag=tags.group();
+                java.util.regex.Matcher src=java.util.regex.Pattern.compile("(?i)\\b(?:src|data-src)\\s*=\\s*(['\"])(.*?)\\1").matcher(tag);
+                while(src.find()){
+                    String raw=src.group(2).replace("&amp;","&");
+                    String lower=raw.toLowerCase(Locale.US);
+                    boolean known=switch(source.id){
+                        case "penny" -> lower.contains("art.penny-arcade.com/photos/")||lower.contains("cdn.penny-arcade.com")&&lower.contains("comic");
+                        case "cad" -> lower.contains("/comics/")||lower.contains("/comic/")||lower.contains("/wp-content/uploads/")&&tag.toLowerCase(Locale.US).contains("comic");
+                        case "sam" -> lower.contains("/comics/")||lower.contains("/comic/");
+                        case "qc" -> lower.contains("/comics/");
+                        case "xkcd" -> lower.contains("imgs.xkcd.com/comics/");
+                        case "smbc" -> lower.contains("/comics/");
+                        case "dinosaur" -> lower.contains("/comics/");
+                        default -> tag.toLowerCase(Locale.US).matches("(?s).*\\b(?:id|class)\\s*=\\s*['\"][^'\"]*(?:comic-image|comicimage|comic-img|comicimg|comic-art)[^'\"]*['\"].*");
+                    };
+                    if(known)return new URL(new URL(page),raw).toString();
+                }
+            }
+        }catch(Exception ignored){}
+        return "";
+    }
+
     private static File dir(Context c){File d=new File(c.getFilesDir(),"comic_images");d.mkdirs();return d;}
     private static String cacheImage(Context c,Source s,Story st){
+        if(st.imageUrl==null||st.imageUrl.trim().isEmpty())st.imageUrl=publicComicImage(s,st.url);
         if(st.imageUrl==null||st.imageUrl.trim().isEmpty())return "";
         File target=null;
         try{
