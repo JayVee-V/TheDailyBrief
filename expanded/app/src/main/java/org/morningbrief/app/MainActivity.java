@@ -196,6 +196,7 @@ public class MainActivity extends Activity {
         if (page == PAGE_MORNING) {
             title.setText("THE MORNING BRIEF");
             loadCached();
+            refresh(false);
         } else if (page == PAGE_NATIONAL) {
             title.setText("NATIONAL");
             national.render();
@@ -242,7 +243,7 @@ public class MainActivity extends Activity {
             recreate();
             return;
         }
-        if (currentPage == PAGE_MORNING) loadCached();
+        if (currentPage == PAGE_MORNING) { loadCached(); refresh(false); }
         else if (currentPage == PAGE_NATIONAL) national.render();
         else if (currentPage == PAGE_FUNNIES) funnies.render();
         else weekend.render();
