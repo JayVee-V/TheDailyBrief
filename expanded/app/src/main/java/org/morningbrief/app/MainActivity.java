@@ -48,9 +48,7 @@ public class MainActivity extends Activity {
         buildUi();
         loadCached();
         Scheduler.ensureScheduled(this);
-        if (!cachedSupportsTheme || System.currentTimeMillis() - SettingsStore.lastRefresh(this) > 4L * 60L * 60L * 1000L) {
-            refresh(false);
-        }
+        refresh(false);
     }
 
     private void buildUi() {
@@ -278,7 +276,7 @@ public class MainActivity extends Activity {
     }
 
     private void refresh(boolean userRequested) {
-        if (refreshing) return;
+        if (refreshing || !DailyRefresh.begin(this, DailyRefresh.LOCAL, userRequested, SettingsStore.lastRefresh(this))) return;
         refreshing = true;
         showProgress("Starting refresh…", 1);
         new Thread(() -> {
@@ -299,6 +297,7 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> Toast.makeText(this,
                         "Refresh failed; keeping the last edition. " + e.getMessage(), Toast.LENGTH_LONG).show());
             } finally {
+                DailyRefresh.end(DailyRefresh.LOCAL);
                 refreshing = false;
                 runOnUiThread(this::hideProgress);
             }
