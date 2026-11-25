@@ -76,6 +76,7 @@ final class EditionEngine {
             report(listener, "Checking sources · " + completed + " of " + enabled.size(), pct);
         }
         SettingsStore.saveSources(context, sources);
+        if (failures == enabled.size()) throw new Exception("All selected feeds unavailable");
 
         report(listener, "Filtering " + gathered.size() + " stories…", 66);
         long now = System.currentTimeMillis();
