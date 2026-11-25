@@ -42,7 +42,6 @@ final class NationalNews {
     private final ReaderStyle style;
     private volatile boolean loading;
     private static final String[] DOMAINS = {"apnews.com/us-news", "npr.org", "pbs.org/newshour", "thehill.com", "propublica.org"};
-    private volatile boolean attempted;
     NationalNews(Context context, boolean dark) {
         this.context = context; this.dark = dark;
         style = new ReaderStyle(context,dark);
@@ -94,7 +93,7 @@ final class NationalNews {
             }
             if(lead&&!loading)body.addView(style.text("No stories in this edition. Use Settings to update or check sources.",16,false,muted));
         }catch(Exception ignored){}
-        if (updated==0 && !loading && !attempted) update();
+        if (!loading) update(false);
     }
     private void open(String url) {
         try { context.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch(Exception ignored){}
@@ -103,7 +102,7 @@ final class NationalNews {
         new AlertDialog.Builder(context).setTitle("National settings")
             .setItems(new String[]{"Choose sources",loading?"Updating…":"Update edition","Source diagnostics"},(dialog,which)->{
                 if(which==0)chooseSources();
-                else if(which==1)update();
+                else if(which==1)update(true);
                 else new AlertDialog.Builder(context).setTitle("Source diagnostics").setMessage(prefs().getString("status","No refresh completed yet.")).setPositiveButton("Close",null).show();
             }).setNegativeButton("Cancel",null).show();
     }
@@ -115,22 +114,42 @@ final class NationalNews {
             .setPositiveButton("Save",(d,w)->{
                 android.content.SharedPreferences.Editor edit=prefs().edit();
                 for(int i=0;i<checked.length;i++)edit.putBoolean("source_"+i,checked[i]);
-                edit.apply();update();
+                edit.apply();render();
             }).setNegativeButton("Cancel",null).show();
     }
-    private void update() {
-        if(loading)return;
+    private static android.content.SharedPreferences prefs(Context c) {
+        return c.getSharedPreferences(PREF,0);
+    }
+    static long lastEdition(Context c) { return prefs(c).getLong("updated",0); }
+
+    private void update(boolean manual) {
+        if(loading || !DailyRefresh.begin(context,DailyRefresh.NATIONAL,manual,lastEdition(context)))return;
         loading=true;
-        attempted=true;
         render();
-        final java.util.concurrent.ExecutorService worker = Executors.newSingleThreadExecutor();
-        worker.execute(()->{
+        new Thread(()->{
+            try { fetchEdition(context.getApplicationContext()); }
+            catch(Exception e) { prefs(context).edit().putString("status","Refresh failed: "+e.getMessage()).apply(); }
+            finally {
+                DailyRefresh.end(DailyRefresh.NATIONAL);
+                ((android.app.Activity)context).runOnUiThread(()->{loading=false;render();});
+            }
+        },"national-daily-edition").start();
+    }
+
+    static void refreshScheduled(Context c) {
+        if(!DailyRefresh.begin(c,DailyRefresh.NATIONAL,false,lastEdition(c)))return;
+        try { fetchEdition(c); }
+        catch(Exception e) { prefs(c).edit().putString("status","Refresh failed: "+e.getMessage()).apply(); }
+        finally { DailyRefresh.end(DailyRefresh.NATIONAL); }
+    }
+
+    private static void fetchEdition(Context context) {
             ArrayList<JSONObject> found=new ArrayList<>();
             ArrayList<String> diagnostics=new ArrayList<>();
             java.util.concurrent.ExecutorService feeds=Executors.newFixedThreadPool(URLS.length);
             ArrayList<java.util.concurrent.Future<String>> jobs=new ArrayList<>();
             for(int i=0;i<URLS.length;i++) {
-                if(!prefs().getBoolean("source_"+i,true))continue;
+                if(!prefs(context).getBoolean("source_"+i,true))continue;
                 final int index=i;
                 jobs.add(feeds.submit(()->{
                     String source=NAMES[index];
@@ -187,12 +206,8 @@ final class NationalNews {
                 }
                 if(!duplicate && result.length()<25) {result.put(item);tokens.add(normalized);}
             }
-            android.content.SharedPreferences.Editor edit=prefs().edit();
+            android.content.SharedPreferences.Editor edit=prefs(context).edit();
             if(result.length()>0) edit.putString("stories",result.toString()).putLong("updated",System.currentTimeMillis());
             edit.putString("status",(result.length()==0?"No new stories retrieved; retaining cached edition.":"Sources checked:") + "\n"+String.join("\n",diagnostics)).apply();
-            loading=false;
-            ((android.app.Activity)context).runOnUiThread(this::render);
-        });
-        worker.shutdown();
     }
 }
