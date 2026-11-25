@@ -285,7 +285,6 @@ public class SetupActivity extends Activity {
         String theme = appearance.getSelectedItemPosition() == 2 ? "dark" : (appearance.getSelectedItemPosition() == 1 ? "light" : "system");
         SettingsStore.saveTheme(this, theme);
         SettingsStore.setSetup(this, true);
-        SettingsStore.setLastRefresh(this, 0L);
         Scheduler.scheduleNext(this);
 
         Intent i = new Intent(this, MainActivity.class);
