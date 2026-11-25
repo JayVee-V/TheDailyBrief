@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - '.release/v0.7.0-test.5'
+      - '.release/v0.7.0-test.6'
       - '.github/workflows/publish-v060-test.yml'
 
 permissions:
@@ -16,8 +16,8 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-      VERSION: "0.7.0-test.5"
-      TAG: "v0.7.0-test.5"
+      VERSION: "0.7.0-test.6"
+      TAG: "v0.7.0-test.6"
 
     steps:
       - uses: actions/checkout@v5
@@ -43,8 +43,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'versionName = "0.7.0-test.5"' expanded/app/build.gradle.kts
-          grep -q 'versionCode = 18' expanded/app/build.gradle.kts
+          grep -q 'versionName = "0.7.0-test.6"' expanded/app/build.gradle.kts
+          grep -q 'versionCode = 19' expanded/app/build.gradle.kts
 
       - name: Restore existing Android signing key
         shell: bash
@@ -117,4 +117,4 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "The Daily Brief $VERSION" \
             --prerelease \
-            --notes "One automatic refresh per calendar day for each news section, preserving existing editions and manual refresh. Signing certificate verified against v0.6.0-test.2."
+            --notes "Daily comics and individually selectable puzzles, with cached public comic images and shared back-page styling. Signing certificate verified against v0.6.0-test.2."
