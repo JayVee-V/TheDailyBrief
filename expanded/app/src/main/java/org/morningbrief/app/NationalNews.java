@@ -67,7 +67,6 @@ final class NationalNews {
     }
     void render() {
         body.removeAllViews();
-        body.addView(style.text("National news", 26, true, ink));
         long updated = prefs().getLong("updated", 0);
         body.addView(text(updated == 0 ? "No edition yet" :
             "Edition updated " + new SimpleDateFormat("EEE, MMM d · h:mm a", Locale.US).format(new Date(updated))
