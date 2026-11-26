@@ -68,7 +68,7 @@ public class SetupActivity extends Activity {
         root.setBackgroundColor(pageColor);
         scroll.addView(root);
 
-        TextView head = text("THE MORNING BRIEF", 28, true);
+        TextView head = text("NewPaper", 28, true);
         root.addView(head);
         TextView sub = text("Local news, assembled on your phone.", 17, false);
         sub.setTextColor(mutedColor);
@@ -157,7 +157,7 @@ public class SetupActivity extends Activity {
         filterPanel.addView(sports); filterPanel.addView(obits); filterPanel.addView(opinion); filterPanel.addView(recipes);
         addPanel(root, filterPanel);
 
-        Button save = button("SAVE & BUILD MY MORNING BRIEF", true);
+        Button save = button("SAVE & BUILD MY EDITION", true);
         save.setOnClickListener(v -> save());
         LinearLayout.LayoutParams sp = match();
         sp.topMargin = dp(18);
