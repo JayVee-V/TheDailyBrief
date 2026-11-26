@@ -1,90 +1,39 @@
-# The Daily Brief — Android
+# NewPaper
 
-A stand-alone Android local-news brief that favors nonprofit and public-service journalism, builds a compact edition on-device, and requires no Daily Brief account or hosted backend.
+**The newspaper, reinvented.**
+
+NewPaper (formerly The Morning Brief / The Daily Brief) is a customizable Android newspaper with finite daily editions rather than a continuously refreshing feed. No account or hosted NewPaper backend is required.
 
 ## Download
 
-For testers and normal users, use the **Releases** page rather than downloading source code. APK releases will be attached there.
+Get the signed APK from [GitHub Releases](../../releases). Existing users can install it over The Morning Brief: the Android application ID and signing identity are unchanged.
 
-> Android may warn that the APK came from outside Google Play. That is expected for a directly distributed build.
+## The daily paper
 
-## Current version: v0.4.2
+- **Local:** local and Michigan reporting, a lead story, weather with feels-like temperatures, selectable news sources and editorial filtering.
+- **National:** US-focused English-language reporting, selectable sources and grouped related coverage.
+- **Features:** a persistent reading shelf for selected feature feeds and saved news. Read opens an article; Close removes it.
+- **Leisure:** selectable comics, optional memes and individually selectable daily puzzles. Comic images are embedded when available; the in-app reader provides a direct return to Leisure.
 
-- **Never reprints a story once it has appeared in an edition.** Printed URL/title fingerprints are kept locally and excluded from future candidate pools.
-- Removed previous-edition carry-forward stories as filler; a thin news day stays thin rather than recycling yesterday's paper.
-- Places the **top story above the weather** so the front page reads like a newspaper first.
-- Replaced the fixed 10-story edition with an **editorial quality threshold**.
-- Added a 25-story emergency cap only as a safety valve.
-- Added **near-duplicate clustering** so multiple outlets covering the same event do not waste slots. Same-publisher stories are only deduplicated when their title or URL actually matches.
-- Strongly favors preferred nonprofit/community sources, then other INN sources, then useful direct local reporting, with Google/commercial coverage used as gap-fillers.
-- Adds diminishing-return penalties when one publisher or topic starts dominating the issue; these penalties affect ordering, not whether an otherwise qualified story is included.
-- Scores stories for locality, freshness, source quality, and public-interest value.
-- Organizes the edition as **Top Stories / Local / Michigan / More to Know**.
-- Adds a real **build progress bar** and status messages while sources are checked and stories are filtered.
-- Improves dark-mode Settings contrast with clearer panels, headings, controls, and selected states.
-- Keeps **Appearance: System / Light / Dark**.
-- Existing installs migrate automatically; users do not have to wipe setup data or re-enter their ZIP code.
-
-## How source selection works
-
-### During setup
-
-1. Resolve ZIP → city/state/county/coordinates/time zone.
-2. Add known preferred public-service feeds for the area.
-3. Query the Institute for Nonprofit News / Find Your News directory by place.
-4. Use Google News local/community/nonprofit queries to discover additional publishers.
-5. Probe publisher sites for direct RSS/Atom feeds.
-6. Let the user enable/disable sources or add a feed manually.
-
-### Every morning
-
-The app gathers a larger candidate pool, filters unwanted categories, removes anything that has already appeared in a prior edition, clusters duplicate/same-event coverage, scores each remaining story for intrinsic editorial quality, keeps stories that clear that quality bar, and then uses source/topic repetition penalties only to order the qualified stories more diversely.
-
-Preferred nonprofit/community reporting gets the strongest source bonus. Commercial and Google-sourced stories are not guaranteed slots; they are used when they add genuinely useful coverage.
-
-Sports, obituaries, opinion/letters, and recipes are excluded by default and can be enabled in Settings.
+The app checks for a new edition each morning (scheduled for 4:45 a.m., subject to Android scheduling), with at most one automatic refresh attempt per section per calendar day. Manual refresh remains available in section-specific settings.
 
 ## Privacy
 
-ZIP code, source choices, appearance, the printed-story history, cached stories, and cached weather are stored locally on the device.
-
-Network requests go directly to:
-
-- Open-Meteo for ZIP lookup and weather
-- FindYourNews.org during nonprofit-source discovery
-- Google News during source discovery or fallback
-- selected publisher feeds
-
-No Daily Brief server is required.
+Location settings, source choices, appearance, reading history, saved articles and cached editions are kept on the device. The app contacts weather services, news discovery services, publisher feeds and selected comic and puzzle providers directly.
 
 ## Build
 
-### Android Studio
+The current Android source is in `expanded/`. With Java 17, Gradle 8.9 and Android SDK 35:
 
-Open the project and build the debug APK.
+```sh
+gradle -p expanded :app:assembleDebug
+```
 
-Output:
-
-`app/build/outputs/apk/debug/app-debug.apk`
-
-### CachyOS / terminal
-
-The included Fish script builds and installs locally:
-
-`fish build-and-install.fish`
-
-If ADB sees a connected phone, the script installs the resulting APK. Otherwise it prints the APK path.
-
-### GitHub Actions
-
-`.github/workflows/build-apk.yml` builds the newest source bundle under `source/` and uploads a debug APK as a workflow artifact.
-
-**Distribution releases should use the same persistent signing identity across versions** so Android can install later releases as updates.
-
-## Build target
+The ordinary CI build produces an Actions artifact for development. Installable phone releases are separately built and signed with the persistent signing key and checked against the known-compatible v0.6.0-test.2 release certificate before publication. Use those signed releases for in-place updates.
 
 - minSdk 26 (Android 8)
-- targetSdk 35
-- compileSdk 35
+- targetSdk / compileSdk 35
 - Java 17
-- no AndroidX/runtime third-party libraries
+- No AndroidX/runtime third-party libraries
+
+The existing package ID `org.morningbrief.app` and stored-data identifiers intentionally retain their historical names for upgrade compatibility.
