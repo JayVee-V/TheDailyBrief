@@ -1,10 +1,10 @@
-name: Publish signed v0.7.0 test release
+name: Publish signed NewPaper release
 
 on:
   push:
     branches: [ main ]
     paths:
-      - '.release/v0.7.0-test.7'
+      - '.release/v0.8.0'
       - '.github/workflows/publish-v060-test.yml'
 
 permissions:
@@ -16,8 +16,8 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-      VERSION: "0.7.0-test.7"
-      TAG: "v0.7.0-test.7"
+      VERSION: "0.8.0"
+      TAG: "v0.8.0"
 
     steps:
       - uses: actions/checkout@v5
@@ -43,8 +43,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'versionName = "0.7.0-test.7"' expanded/app/build.gradle.kts
-          grep -q 'versionCode = 20' expanded/app/build.gradle.kts
+          grep -q 'versionName = "0.8.0"' expanded/app/build.gradle.kts
+          grep -q 'versionCode = 21' expanded/app/build.gradle.kts
 
       - name: Restore existing Android signing key
         shell: bash
@@ -67,8 +67,8 @@ jobs:
         run: |
           set -euo pipefail
           UNSIGNED="expanded/app/build/outputs/apk/release/app-release-unsigned.apk"
-          ALIGNED="$RUNNER_TEMP/TheDailyBrief-v$VERSION-aligned.apk"
-          SIGNED="$RUNNER_TEMP/TheDailyBrief-v$VERSION.apk"
+          ALIGNED="$RUNNER_TEMP/NewPaper-v$VERSION-aligned.apk"
+          SIGNED="$RUNNER_TEMP/NewPaper-v$VERSION.apk"
           ZIPALIGN="$ANDROID_HOME/build-tools/35.0.0/zipalign"
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
 
@@ -113,8 +113,8 @@ jobs:
             exit 1
           fi
 
-          gh release create "$TAG" "$SIGNED_APK#TheDailyBrief-v$VERSION.apk" \
+          gh release create "$TAG" "$SIGNED_APK#NewPaper-v$VERSION.apk" \
             --target "$GITHUB_SHA" \
-            --title "The Daily Brief $VERSION" \
+            --title "NewPaper $VERSION" \
             --prerelease \
-            --notes "Expanded comic catalog, public comic image extraction and in-app reader with one-tap return to Leisure. Signing certificate verified against v0.6.0-test.2."
+            --notes "Introducing NewPaper: a permanent masthead, individual section headings, new launcher branding and unchanged upgrade identity. Signing certificate verified against v0.6.0-test.2."
