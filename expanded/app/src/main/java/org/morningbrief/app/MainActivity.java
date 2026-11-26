@@ -70,13 +70,25 @@ public class MainActivity extends Activity {
         bar.setPadding(dp(12), dp(6), dp(6), dp(6));
         bar.setBackgroundColor(background);
 
+        LinearLayout masthead = new LinearLayout(this);
+        masthead.setOrientation(LinearLayout.VERTICAL);
+        masthead.setGravity(Gravity.CENTER_VERTICAL);
+        TextView brand = new TextView(this);
+        brand.setText("NewPaper");
+        brand.setTextColor(ink);
+        brand.setTextSize(30);
+        brand.setTypeface(android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD);
+        brand.setIncludeFontPadding(false);
+        masthead.addView(brand);
         title = new TextView(this);
-        title.setText("THE MORNING BRIEF");
-        title.setTextColor(ink);
-        title.setTextSize(18);
-        title.setGravity(Gravity.CENTER_VERTICAL);
-        title.setTypeface(android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD);
-        bar.addView(title, new LinearLayout.LayoutParams(0, dp(44), 1));
+        title.setText("LOCAL");
+        title.setTextColor(muted);
+        title.setTextSize(12);
+        title.setLetterSpacing(.12f);
+        title.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        title.setPadding(0, dp(3), 0, 0);
+        masthead.addView(title);
+        bar.addView(masthead, new LinearLayout.LayoutParams(0, -2, 1));
 
         Button settings = new Button(this);
         settings.setText("Settings");
@@ -194,7 +206,7 @@ public class MainActivity extends Activity {
         funnies.view().setVisibility(page == PAGE_FUNNIES ? View.VISIBLE : View.GONE);
         weekend.view().setVisibility(page == PAGE_WEEKEND ? View.VISIBLE : View.GONE);
         if (page == PAGE_MORNING) {
-            title.setText("THE MORNING BRIEF");
+            title.setText("LOCAL");
             loadCached();
             refresh(false);
         } else if (page == PAGE_NATIONAL) {
@@ -223,7 +235,7 @@ public class MainActivity extends Activity {
             return;
         }
         new AlertDialog.Builder(this)
-                .setTitle("Morning Brief settings")
+                .setTitle("Local settings")
                 .setItems(new String[]{"News, weather & appearance", "Rebuild current edition"}, (dialog, which) -> {
                     if (which == 0) {
                         startActivity(new Intent(this, SetupActivity.class).putExtra("edit", true));
@@ -262,12 +274,14 @@ public class MainActivity extends Activity {
                 }
             }catch(Exception ignored){}
         }
+        // Rebrand cached editions without contacting sources or resetting the daily cycle.
+        html = html.replace("<h1>THE MORNING BRIEF</h1>", "").replace("<h1>The Morning Brief</h1>", "");
         cachedSupportsTheme = html.contains("theme-") && html.contains("--page:");
         if (html.trim().isEmpty()) {
             boolean dark = SettingsStore.useDark(this);
             String bg = dark ? "#10110f" : "#fafaf6";
             String fg = dark ? "#f0efe8" : "#111";
-            html = "<html><meta name='viewport' content='width=device-width'><body style='font-family:serif;padding:30px;background:" + bg + ";color:" + fg + "'><h1>The Morning Brief</h1><p>Building your first edition…</p></body></html>";
+            html = "<html><meta name='viewport' content='width=device-width'><body style='font-family:serif;padding:30px;background:" + bg + ";color:" + fg + "'><h2>Local edition</h2><p>Building your first edition…</p></body></html>";
             cachedSupportsTheme = false;
         } else if (cachedSupportsTheme) {
             String desired = SettingsStore.theme(this);
