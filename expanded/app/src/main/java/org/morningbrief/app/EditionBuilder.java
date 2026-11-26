@@ -30,7 +30,7 @@ final class EditionBuilder {
          .append("<meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>")
          .append("<meta name='color-scheme' content='").append(colorScheme).append("'>")
          .append("<style>").append(css()).append("</style></head><body><main>")
-         .append("<header class='site-header'><h1>THE MORNING BRIEF</h1><div class='date'>")
+         .append("<header class='site-header'><div class='date'>")
          .append(esc(date.toUpperCase(Locale.US))).append("</div></header>");
 
         h.append("<section class='front'>");
@@ -160,7 +160,7 @@ final class EditionBuilder {
             html.theme-dark{--page:#0d0e0c;--paper:#10110f;--ink:#f0efe8;--muted:#b8b8b0;--rule:#44453f;--card:#252725;--border:#44453f;--summary:#b8b8b0;--shadow:transparent;--badge:#31332d;color-scheme:dark}
             @media(prefers-color-scheme:dark){html.theme-system{--page:#0d0e0c;--paper:#10110f;--ink:#f0efe8;--muted:#b8b8b0;--rule:#44453f;--card:#252725;--border:#44453f;--summary:#b8b8b0;--shadow:transparent;--badge:#31332d;color-scheme:dark}}
             *{box-sizing:border-box}html{background:var(--page)}body{margin:0;background:var(--paper);color:var(--ink);font-family:Georgia,'Times New Roman',serif;line-height:1.35;min-height:100vh}
-            main{max-width:860px;margin:0 auto;padding:0 16px 28px}.site-header{text-align:center;padding:18px 8px 11px}.site-header h1{font-size:clamp(1.9rem,7vw,2.7rem);letter-spacing:.035em;margin:0}.date{margin-top:5px;font:700 .82rem system-ui,sans-serif;letter-spacing:.08em;color:var(--muted)}
+            main{max-width:860px;margin:0 auto;padding:0 16px 28px}.site-header{text-align:center;padding:9px 8px 11px}.site-header h1{font-size:clamp(1.9rem,7vw,2.7rem);letter-spacing:.035em;margin:0}.date{margin-top:5px;font:700 .82rem system-ui,sans-serif;letter-spacing:.08em;color:var(--muted)}
             .front{display:grid;gap:14px}.card{background:var(--card);border:0;border-radius:14px;overflow:hidden;box-shadow:none}
             .weather{padding:14px}.weather-title,.source,.section-head,.section-label,.story-source{font:700 .76rem system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase}.weather-title{margin-bottom:11px}.section-label{color:var(--muted);margin-bottom:7px}.with-rule{border-top:1px solid var(--rule);padding-top:12px;margin-top:13px}
             .forecast-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.daily-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.forecast{text-align:center;border-top:2px solid var(--rule);padding:7px 2px 0;font:.76rem system-ui,sans-serif;display:flex;flex-direction:column;gap:3px}.forecast b{font-size:.82rem}.forecast .temp{font:700 1.25rem Georgia,serif}.daily-temp{font:700 1.03rem Georgia,serif}.forecast small{font-size:.7rem;color:var(--muted)}
