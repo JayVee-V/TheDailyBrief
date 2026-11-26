@@ -79,7 +79,6 @@ final class FunniesPuzzles {
         ScrollView scroll=new ScrollView(activity);scroll.setFillViewport(true);pageScroll=scroll;
         LinearLayout column=new LinearLayout(activity);column.setOrientation(LinearLayout.VERTICAL);
         column.setPadding(dp(16),dp(16),dp(16),dp(28));
-        TextView heading=style.text("THE BACK PAGE",28,true,style.ink);heading.setGravity(Gravity.CENTER);column.addView(heading);
         TextView date=style.text(LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy",Locale.US)).toUpperCase(Locale.US),12,false,style.muted);
         date.setGravity(Gravity.CENTER);date.setLetterSpacing(.08f);date.setPadding(0,dp(5),0,dp(12));column.addView(date);
         boolean comics=false;
