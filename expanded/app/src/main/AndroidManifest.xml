@@ -8,7 +8,7 @@
         android:name=".MorningBriefApp"
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
-        android:label="The Morning Brief"
+        android:label="NewPaper"
         android:usesCleartextTraffic="false"
         android:theme="@style/AppTheme">
 
