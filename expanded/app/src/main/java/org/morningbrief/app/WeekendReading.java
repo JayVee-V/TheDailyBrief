@@ -313,7 +313,7 @@ final class WeekendReading {
         LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setPadding(dp(16), dp(16), dp(16), dp(28));
-        TextView header = text("Your reading shelf", 26, true, ink);
+        TextView header = text("Your reading shelf", 16, true, ink);
         column.addView(header);
         List<Card> list = cards();
         List<JSONObject> saved = SavedNews.items(activity);
@@ -356,7 +356,7 @@ final class WeekendReading {
         saveCards(list);
         Set<String> ids=dismissed();ids.add(id(card.url));saveDismissed(ids);
         render();
-        Toast.makeText(activity,"Removed from Weekend Reading",Toast.LENGTH_SHORT).show();
+        Toast.makeText(activity,"Removed from Features",Toast.LENGTH_SHORT).show();
     }
     private String descriptionFor(Feed feed) {
         for (int i = 0; i < SUGGESTED_URLS.length; i++) {
@@ -368,7 +368,7 @@ final class WeekendReading {
     void showSettings() {
         String collectLabel = busy ? "Collecting…" : "Collect new articles";
         AlertDialog dialog = new AlertDialog.Builder(activity)
-                .setTitle("Weekend Reading")
+                .setTitle("Features settings")
                 .setItems(new String[]{"Choose sources", collectLabel}, (d, which) -> {
                     if (which == 0) manage();
                     else if (!busy) collect();
