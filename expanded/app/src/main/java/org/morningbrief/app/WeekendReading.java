@@ -305,10 +305,12 @@ final class WeekendReading {
         catch (Exception e) { Toast.makeText(activity, "Unable to open article", Toast.LENGTH_SHORT).show(); }
     }
 
+    private ScrollView readingScroll;
     void render() {
+        int oldY=readingScroll==null?0:readingScroll.getScrollY();
         screen.removeAllViews();
 
-        ScrollView sc = new ScrollView(activity);
+        ScrollView sc = new ScrollView(activity);readingScroll=sc;
         sc.setFillViewport(true);
         LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
@@ -346,6 +348,7 @@ final class WeekendReading {
         }
         sc.addView(column);
         screen.addView(sc, new LinearLayout.LayoutParams(-1, 0, 1));
+        if(oldY>0)sc.post(()->sc.scrollTo(0,oldY));
     }
     private int uiPanel() { return background == Color.rgb(16,17,15)
             ? Color.rgb(37,39,37) : Color.rgb(239,239,233); }
