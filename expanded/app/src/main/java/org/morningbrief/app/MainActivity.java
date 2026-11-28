@@ -35,6 +35,7 @@ public class MainActivity extends Activity {
     private FrameLayout pages;
     private View settingsPage;
     private Runnable settingsClosed;
+    private boolean returningFromLocalSettings, pendingLocalUpdate;
     private static final String[] SECTION_NAMES={"LOCAL","NATIONAL","FEATURES","LEISURE"};
     private int currentPage = PAGE_MORNING;
     private ProgressBar progress;
@@ -54,7 +55,9 @@ public class MainActivity extends Activity {
         buildUi();
         loadCached();
         Scheduler.ensureScheduled(this);
-        refresh(false);
+        boolean force=getIntent().getBooleanExtra("update_after_theme",false);
+        getIntent().removeExtra("update_after_theme");
+        refresh(force);
     }
 
     private void buildUi() {
@@ -250,7 +253,10 @@ public class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int request,int result,Intent data){
         super.onActivityResult(request,result,data);
-        if(request==101&&result==RESULT_OK&&data!=null&&data.getBooleanExtra("update",false))refresh(true);
+        if(request==101){
+            returningFromLocalSettings=true;
+            pendingLocalUpdate=result==RESULT_OK&&data!=null&&data.getBooleanExtra("update",false);
+        }
     }
 
     @Override protected void onResume() {
@@ -258,7 +264,13 @@ public class MainActivity extends Activity {
         if (web == null || !SettingsStore.isSetup(this)) return;
         boolean nowDark = SettingsStore.useDark(this);
         if (nowDark != uiDark) {
+            if(pendingLocalUpdate)getIntent().putExtra("update_after_theme",true);
             recreate();
+            return;
+        }
+        if(returningFromLocalSettings){
+            returningFromLocalSettings=false;
+            if(pendingLocalUpdate){pendingLocalUpdate=false;refresh(true);}
             return;
         }
         if(settingsPage!=null)return;
