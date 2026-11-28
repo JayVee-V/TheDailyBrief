@@ -70,7 +70,7 @@ public class SetupActivity extends Activity {
 
         TextView head = text("NewPaper", 28, true);
         root.addView(head);
-        TextView sub = text("Local news, assembled on your phone.", 17, false);
+        TextView sub = text(getIntent().getBooleanExtra("edit",false)?"LOCAL SETTINGS":"Local news, assembled on your phone.", 17, false);
         sub.setTextColor(mutedColor);
         sub.setPadding(0, dp(4), 0, dp(14));
         root.addView(sub);
@@ -157,13 +157,20 @@ public class SetupActivity extends Activity {
         filterPanel.addView(sports); filterPanel.addView(obits); filterPanel.addView(opinion); filterPanel.addView(recipes);
         addPanel(root, filterPanel);
 
-        Button save = button("SAVE & BUILD MY EDITION", true);
-        save.setOnClickListener(v -> save());
+        boolean editing=getIntent().getBooleanExtra("edit",false);
+        Button save = button(editing?"Save settings":"Save & build my edition", true);
+        save.setOnClickListener(v -> save(!editing));
         LinearLayout.LayoutParams sp = match();
         sp.topMargin = dp(18);
         sp.height = dp(54);
         root.addView(save, sp);
-
+        if(editing){
+            Button update=button("Save & update edition",false);
+            update.setOnClickListener(v->save(true));root.addView(update,match());
+        }
+        scroll.setOnApplyWindowInsetsListener((v,insets)->{
+            scroll.setPadding(0,insets.getSystemWindowInsetTop(),0,insets.getSystemWindowInsetBottom());return insets;
+        });
         setContentView(scroll);
     }
 
@@ -261,7 +268,7 @@ public class SetupActivity extends Activity {
                 .show();
     }
 
-    private void save() {
+    private void save(boolean update) {
         String currentZip = zip.getText().toString().trim();
         if (resolvedLocation == null || !currentZip.equals(resolvedLocation.zip)) {
             Toast.makeText(this, "Run source discovery for this ZIP code first.", Toast.LENGTH_LONG).show();
@@ -287,6 +294,9 @@ public class SetupActivity extends Activity {
         SettingsStore.setSetup(this, true);
         Scheduler.scheduleNext(this);
 
+        if(getIntent().getBooleanExtra("edit",false)){
+            setResult(RESULT_OK,new Intent().putExtra("update",update));finish();return;
+        }
         Intent i = new Intent(this, MainActivity.class);
         i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(i);
