@@ -159,7 +159,7 @@ final class NationalNews {
                 checked->prefs().edit().putBoolean("source_"+index,checked).apply());
         }
         page.section("Edition management","Automatic editions are checked once per day. Update manually when needed.");
-        page.action(loading?"Updating…":"Update edition",()->{activity.closeSettings();update(true);});
+        page.action(loading?"Updating…":"Update edition",()->{update(true);activity.closeSettings();});
         page.action("Source diagnostics",()->{
             String report=prefs().getString("status","No refresh completed yet.");
             SettingsPage diagnostics=new SettingsPage(context,style);
