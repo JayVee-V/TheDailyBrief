@@ -81,36 +81,29 @@ final class FunniesPuzzles {
         column.setPadding(dp(16),dp(16),dp(16),dp(28));
         TextView date=style.text(LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy",Locale.US)).toUpperCase(Locale.US),12,false,style.muted);
         date.setGravity(Gravity.CENTER);date.setLetterSpacing(.08f);date.setPadding(0,dp(5),0,dp(12));column.addView(date);
+        String today=LocalDate.now().toString();
         boolean comics=false;
-        for(ComicEdition.Source s:ComicEdition.SOURCES)if(ComicEdition.enabled(activity,s))comics=true;
-        if(comics||prefs().getBoolean("funnies_show_memes",true)){
+        for(ComicEdition.Source source:ComicEdition.SOURCES)
+            if(ComicEdition.enabled(activity,source)&&today.equals(ComicEdition.edition(activity,source))&&ComicEdition.items(activity,source).length()>0)comics=true;
+        boolean memes=prefs().getBoolean("funnies_show_memes",true);
+        if(comics||memes){
             section(column,"FUNNIES & COMICS");
-            if(busy){TextView t=style.text("Collecting the daily comics…",13,false,style.muted);t.setPadding(0,0,0,dp(12));column.addView(t);}
-            String today=LocalDate.now().toString();
-            for(ComicEdition.Source s:ComicEdition.SOURCES){
-                if(!ComicEdition.enabled(activity,s))continue;
-                JSONArray items=ComicEdition.items(activity,s);
-                String status=ComicEdition.status(activity,s);
-                if(items.length()==0){
-                    String detail=status.isEmpty()?(busy?"Checking for new strips…":"No strip collected yet."):status;
-                    column.addView(style.card("Comic strip",s.name,detail,false,"Read comic",()->readComic(s.name,s.home,null),null,null));
-                }else{
-                    boolean cached=!today.equals(ComicEdition.edition(activity,s));
-                    for(int i=0;i<items.length();i++){
-                        JSONObject o=items.optJSONObject(i);if(o!=null)column.addView(comicCard(s,o,cached));
-                    }
+            for(ComicEdition.Source source:ComicEdition.SOURCES){
+                if(!ComicEdition.enabled(activity,source)||!today.equals(ComicEdition.edition(activity,source)))continue;
+                JSONArray items=ComicEdition.items(activity,source);
+                for(int i=0;i<items.length();i++){
+                    JSONObject o=items.optJSONObject(i);if(o!=null)column.addView(comicCard(source,o,false));
                 }
             }
-            if(prefs().getBoolean("funnies_show_memes",true))
-                column.addView(style.card("Imgur · deafkitten","Daily meme collection","Optional collection of internet humor.",false,"Open",()->open("https://imgur.com/user/deafkitten/posts"),null,null));
+            if(memes)column.addView(style.card("Imgur · deafkitten","Daily meme collection","Optional collection of internet humor.",false,"Open",()->open("https://imgur.com/user/deafkitten/posts"),null,null));
         }
         boolean games=false;for(Game g:GAMES)if(enabled(g))games=true;
         if(games){
             section(column,"DAILY PUZZLES");
             for(Game g:GAMES)if(enabled(g))column.addView(style.card(g.provider,g.title,g.description,false,"Play",()->open(g.url),null,null));
         }
-        if(!comics&&!games&&!prefs().getBoolean("funnies_show_memes",true)){
-            TextView empty=style.text("Choose comics and puzzles in Settings.",16,false,style.muted);column.addView(empty);
+        if(!comics&&!games&&!memes){
+            TextView empty=style.text(busy?"Collecting today’s comics…":"Nothing to display in today’s edition.",16,false,style.muted);column.addView(empty);
         }
         scroll.addView(column);screen.addView(scroll,new LinearLayout.LayoutParams(-1,-1));
         if(oldY>0)scroll.post(()->scroll.scrollTo(0,oldY));
@@ -136,44 +129,31 @@ final class FunniesPuzzles {
         LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.bottomMargin=dp(12);card.setLayoutParams(p);return card;
     }
     void showSettings(){
-        new AlertDialog.Builder(activity).setTitle("Leisure settings")
-            .setItems(new String[]{"Choose comics and puzzles",busy?"Collecting comics…":"Collect comics now"},(d,i)->{
-                if(i==0)choose();else collect(true);
-            }).setNegativeButton("Cancel",null).show();
-    }
-    private void choose(){
-        LinearLayout column=new LinearLayout(activity);column.setOrientation(LinearLayout.VERTICAL);
-        column.setPadding(dp(18),dp(16),dp(18),dp(14));column.setBackgroundColor(style.paper);
-        column.addView(style.text("Your back page",23,true,style.ink));
-        TextView intro=style.text("Choose each comic and each puzzle individually.",14,false,style.muted);
-        intro.setPadding(0,dp(7),0,dp(6));column.addView(intro);
-        ScrollView scroll=new ScrollView(activity);LinearLayout list=new LinearLayout(activity);list.setOrientation(LinearLayout.VERTICAL);
-        section(list,"COMIC STRIPS");
-        for(ComicEdition.Source s:ComicEdition.SOURCES)option(list,s.name,s.description,"comic_enabled_"+s.id,ComicEdition.enabled(activity,s));
-        section(list,"MEMES");
-        option(list,"deafkitten","Optional daily Imgur meme collection.","funnies_show_memes",prefs().getBoolean("funnies_show_memes",true));
-        section(list,"DAILY PUZZLES");
-        for(Game g:GAMES)option(list,g.title,g.description+" · "+g.provider,"puzzle_enabled_"+g.id,enabled(g));
-        scroll.addView(list);column.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
-        AlertDialog dialog=new AlertDialog.Builder(activity).setView(column).setPositiveButton("Done",(d,w)->render()).create();
-        dialog.setOnShowListener(d->{
-            if(dialog.getWindow()!=null){
-                dialog.getWindow().setBackgroundDrawable(new ColorDrawable(style.paper));
-                dialog.getWindow().setLayout(activity.getResources().getDisplayMetrics().widthPixels-dp(24),
-                    Math.round(activity.getResources().getDisplayMetrics().heightPixels*.82f));
+        SettingsPage page=new SettingsPage(activity,style);
+        page.section("Comic strips","Choose your comic subscriptions. Only strips collected for today's edition appear in Leisure.");
+        for(ComicEdition.Source source:ComicEdition.SOURCES)
+            page.choice(source.name,source.description,ComicEdition.enabled(activity,source),
+                on->prefs().edit().putBoolean("comic_enabled_"+source.id,on).apply());
+        page.section("Memes","");
+        page.choice("deafkitten","Optional daily Imgur meme collection.",prefs().getBoolean("funnies_show_memes",true),
+            on->prefs().edit().putBoolean("funnies_show_memes",on).apply());
+        page.section("Daily puzzles","Select each game individually.");
+        for(Game g:GAMES)page.choice(g.title,g.description+" · "+g.provider,enabled(g),
+            on->prefs().edit().putBoolean("puzzle_enabled_"+g.id,on).apply());
+        page.section("Edition management","");
+        page.action(busy?"Collecting comics…":"Collect comics now",()->{collect(true);activity.closeSettings();});
+        page.action("Source diagnostics",()->{
+            SettingsPage details=new SettingsPage(activity,style);
+            details.section("Comic source diagnostics","Today's edition status for each selected comic.");
+            for(ComicEdition.Source source:ComicEdition.SOURCES)if(ComicEdition.enabled(activity,source)){
+                String status=ComicEdition.status(activity,source);
+                String date=ComicEdition.edition(activity,source);
+                details.section(source.name,(status.isEmpty()?ComicEdition.items(activity,source).length()+" strips collected":status)+(date.isEmpty()?"":" · Edition "+date));
             }
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(style.ink);
-        });dialog.show();
-    }
-    private void option(LinearLayout list,String title,String desc,String key,boolean checked){
-        LinearLayout row=new LinearLayout(activity);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(0,dp(8),0,dp(8));
-        LinearLayout copy=new LinearLayout(activity);copy.setOrientation(LinearLayout.VERTICAL);
-        copy.addView(style.text(title,17,true,style.ink));TextView detail=style.text(desc,13,false,style.muted);detail.setPadding(0,dp(3),0,0);copy.addView(detail);
-        row.addView(copy,new LinearLayout.LayoutParams(0,-2,1));
-        CheckBox check=new CheckBox(activity);check.setChecked(checked);check.setContentDescription(title);
-        check.setButtonTintList(new ColorStateList(new int[][]{new int[]{android.R.attr.state_checked},new int[]{}},new int[]{style.ink,style.muted}));
-        check.setOnCheckedChangeListener((b,on)->prefs().edit().putBoolean(key,on).apply());
-        row.addView(check,new LinearLayout.LayoutParams(dp(48),dp(48)));copy.setOnClickListener(v->check.setChecked(!check.isChecked()));list.addView(row);
+            details.action("Back to settings",this::showSettings);
+            activity.openSettings(details,this::render);
+        });
+        activity.openSettings(page,this::render);
     }
     /** Modal reader leaves the back page and its scroll position intact. */
     private void readComic(String name,String url,File image){
