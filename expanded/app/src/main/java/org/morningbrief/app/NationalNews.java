@@ -69,7 +69,7 @@ final class NationalNews {
         body.removeAllViews();
         long updated = prefs().getLong("updated", 0);
         body.addView(text(updated == 0 ? "No edition yet" :
-            "Edition updated " + new SimpleDateFormat("EEE, MMM d · h:mm a", Locale.US).format(new Date(updated))
+            "Edition: " + new SimpleDateFormat("EEE, MMM d · h:mm a", Locale.US).format(new Date(updated))
             + (!sameDay(updated,System.currentTimeMillis()) ? " · Cached / older edition" : ""), 12, false));
         long checked=prefs().getLong("checked",0);
         String outcome=prefs().getString("outcome","");
@@ -87,6 +87,8 @@ final class NationalNews {
                 final String url=item.optString("url");
                 if(SavedNews.moved(context,url))continue;
                 String source=item.optString("source");
+                long published=item.optLong("time",0);
+                if(published>0)source+=" · "+new SimpleDateFormat("MMM d, h:mm a",Locale.US).format(new Date(published));
                 String also=item.optString("also");
                 String summary=item.optString("summary");
                 if(!also.isEmpty())summary+=(summary.isEmpty()?"":"\n\n")+"Also reporting: "+also;
@@ -97,7 +99,7 @@ final class NationalNews {
                 }));
                 lead=false;
             }
-            if(lead&&!loading)body.addView(style.text("No unread cards in this edition. Use Settings to check sources or manually update.",16,false,muted));
+            if(lead&&!loading)body.addView(style.text("No stories to display in this edition. Use Settings to check sources or manually update.",16,false,muted));
         }catch(Exception ignored){}
         if (!loading) update(false);
     }
