@@ -108,6 +108,7 @@ final class NationalNews {
         return v;
     }
     void render() {
+        int oldY=scroll.getScrollY();
         body.removeAllViews();
         long updated = prefs().getLong("updated", 0);
         body.addView(text(updated == 0 ? "No edition yet" :
@@ -143,6 +144,7 @@ final class NationalNews {
             }
             if(lead&&!loading)body.addView(style.text("No stories to display in this edition. Use Settings to check sources or manually update.",16,false,muted));
         }catch(Exception ignored){}
+        if(oldY>0)scroll.post(()->scroll.scrollTo(0,oldY));
         if (!loading) update(false);
     }
     private void open(String url) {
