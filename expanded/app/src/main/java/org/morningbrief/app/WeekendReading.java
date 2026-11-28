@@ -365,100 +365,18 @@ final class WeekendReading {
         return "Custom RSS/Atom feed · " + Uri.parse(feed.url).getHost();
     }
 
-    void showSettings() {
-        String collectLabel = busy ? "Collecting…" : "Collect new articles";
-        AlertDialog dialog = new AlertDialog.Builder(activity)
-                .setTitle("Features settings")
-                .setItems(new String[]{"Choose sources", collectLabel}, (d, which) -> {
-                    if (which == 0) manage();
-                    else if (!busy) collect();
-                })
-                .setNegativeButton("Cancel", null)
-                .create();
-        dialog.show();
-    }
-
-    private void manage() {
-        List<Feed> list = feeds();
-        // Set the dialog's background as well as text colors; Android's default
-        // AlertDialog may be light even when the reader itself uses dark mode.
-        LinearLayout column = new LinearLayout(activity);
-        column.setOrientation(LinearLayout.VERTICAL);
-        column.setPadding(dp(18), dp(16), dp(18), dp(10));
-        column.setBackgroundColor(background);
-
-        TextView title = text("Choose your sources", 23, true, ink);
-        column.addView(title);
-        TextView intro = text("Select the publications you want to collect. You can change these at any time.", 14, false, muted);
-        intro.setPadding(0, dp(7), 0, dp(16));
-        column.addView(intro);
-
-        ScrollView scroll = new ScrollView(activity);
-        scroll.setFillViewport(false);
-        LinearLayout box = new LinearLayout(activity);
-        box.setOrientation(LinearLayout.VERTICAL);
-        for (Feed f : new ArrayList<>(list)) {
-            LinearLayout row = new LinearLayout(activity);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPadding(dp(5), dp(9), dp(2), dp(9));
-
-            LinearLayout copy = new LinearLayout(activity);
-            copy.setOrientation(LinearLayout.VERTICAL);
-            TextView name = text(f.name, 17, true, ink);
-            name.setPadding(0, 0, 0, dp(4));
-            copy.addView(name);
-            TextView detail = text(descriptionFor(f), 13, false, muted);
-            detail.setLineSpacing(dp(2), 1.0f);
-            copy.addView(detail);
-            row.addView(copy, new LinearLayout.LayoutParams(0, -2, 1));
-
-            CheckBox check = new CheckBox(activity);
-            check.setContentDescription("Follow " + f.name);
-            check.setButtonTintList(new ColorStateList(
-                    new int[][] {new int[] {android.R.attr.state_checked}, new int[] {}},
-                    new int[] {ink, muted}));
-            check.setChecked(f.enabled);
-            check.setOnCheckedChangeListener((button, checked) -> {
-                f.enabled = checked;
-                saveFeeds(list);
-            });
-            row.addView(check, new LinearLayout.LayoutParams(dp(48), dp(48)));
-            copy.setOnClickListener(v -> check.setChecked(!check.isChecked()));
-            box.addView(row);
-
-            if (!isSuggested(f.url)) {
-                TextView remove = text("Remove custom source", 13, false, muted);
-                remove.setPadding(dp(5), 0, 0, dp(12));
-                remove.setOnClickListener(v -> {
-                    list.remove(f);
-                    saveFeeds(list);
-                    row.setVisibility(View.GONE);
-                    remove.setVisibility(View.GONE);
-                });
-                box.addView(remove);
-            }
-            View divider = new View(activity);
-            divider.setBackgroundColor(uiPanel());
-            box.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
+    void showSettings(){
+        SettingsPage page=new SettingsPage(activity,style);
+        List<Feed> list=feeds();
+        page.section("Feature sources","Choose the publications that contribute to your reading shelf.");
+        for(Feed feed:new ArrayList<>(list)){
+            page.choice(feed.name,descriptionFor(feed),feed.enabled,on->{feed.enabled=on;saveFeeds(list);});
+            if(!isSuggested(feed.url))page.action("Remove "+feed.name,()->{list.remove(feed);saveFeeds(list);showSettings();});
         }
-        scroll.addView(box);
-        column.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-
-        AlertDialog dialog = new AlertDialog.Builder(activity)
-                .setView(column)
-                .setNegativeButton("Done", (d, which) -> render())
-                .setPositiveButton("Add RSS feed", (d, which) -> addFeed())
-                .create();
-        dialog.setOnShowListener(ignored -> {
-            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(background));
-            dialog.getWindow().setLayout(
-                    Math.min(activity.getResources().getDisplayMetrics().widthPixels - dp(20), dp(530)),
-                    Math.round(activity.getResources().getDisplayMetrics().heightPixels * 0.84f));
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(ink);
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(ink);
-        });
-        dialog.show();
+        page.action("Add RSS feed",this::addFeed);
+        page.section("Reading shelf","Collect new articles without removing saved ones.");
+        page.action(busy?"Collecting…":"Collect new articles",()->{collect();activity.closeSettings();});
+        activity.openSettings(page,this::render);
     }
     private static boolean isSuggested(String u) {
         for(String s:SUGGESTED_URLS)if(s.equals(u))return true;
@@ -486,6 +404,7 @@ final class WeekendReading {
                                     Toast.makeText(activity,"Feed already added",Toast.LENGTH_SHORT).show();return;
                                 }
                                 fs.add(new Feed(n,u,true));saveFeeds(fs);render();
+                                if(activity.isSettingsOpen())showSettings();
                                 Toast.makeText(activity,"Feed added",Toast.LENGTH_SHORT).show();
                             });
                         }catch(Exception e){
