@@ -29,7 +29,13 @@ public class MainActivity extends Activity {
     private FunniesPuzzles funnies;
     private WeekendReading weekend;
     private NationalNews national;
-    private TextView title;
+    private TextView title, settingsButton;
+    private TextView[] tabButtons;
+    private ReaderStyle readerStyle;
+    private FrameLayout pages;
+    private View settingsPage;
+    private Runnable settingsClosed;
+    private static final String[] SECTION_NAMES={"LOCAL","NATIONAL","FEATURES","LEISURE"};
     private int currentPage = PAGE_MORNING;
     private ProgressBar progress;
     private TextView progressStatus;
@@ -53,6 +59,7 @@ public class MainActivity extends Activity {
 
     private void buildUi() {
         uiDark = SettingsStore.useDark(this);
+        readerStyle=new ReaderStyle(this,uiDark);
         int background = uiDark ? Color.rgb(16, 17, 15) : Color.rgb(250, 250, 246);
         int ink = uiDark ? Color.rgb(240, 239, 232) : Color.rgb(17, 17, 17);
         int muted = uiDark ? Color.rgb(184, 184, 176) : Color.rgb(88, 88, 82);
@@ -90,10 +97,10 @@ public class MainActivity extends Activity {
         masthead.addView(title);
         bar.addView(masthead, new LinearLayout.LayoutParams(0, -2, 1));
 
-        Button settings = new Button(this);
-        settings.setText("Settings");
-        settings.setOnClickListener(v -> showCurrentSettings());
-        bar.addView(settings, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(44)));
+        settingsButton=readerStyle.action("Settings",()->{
+            if(settingsPage!=null)closeSettings();else showCurrentSettings();
+        });
+        bar.addView(settingsButton,new LinearLayout.LayoutParams(-2,dp(44)));
         root.addView(bar);
 
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
@@ -140,7 +147,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        FrameLayout pages = new FrameLayout(this);
+        pages = new FrameLayout(this);
         pages.addView(web, new FrameLayout.LayoutParams(-1, -1));
 
         funnies = new FunniesPuzzles(this, uiDark);
@@ -160,6 +167,7 @@ public class MainActivity extends Activity {
         LinearLayout tabs = new LinearLayout(this);
         tabs.setOrientation(LinearLayout.HORIZONTAL);
         tabs.setBackgroundColor(background);
+        tabs.setPadding(dp(8),dp(6),dp(8),dp(6));
 
         // Android 15 enforces edge-to-edge for targetSdk 35. Keep our app chrome
         // outside the status/navigation bar areas instead of letting the phone's
@@ -168,83 +176,81 @@ public class MainActivity extends Activity {
             int topInset = insets.getSystemWindowInsetTop();
             int bottomInset = insets.getSystemWindowInsetBottom();
             bar.setPadding(dp(12), dp(6) + topInset, dp(6), dp(6));
-            tabs.setPadding(0, 0, 0, bottomInset);
+            tabs.setPadding(dp(8),dp(6),dp(8),dp(6)+bottomInset);
             return insets;
         });
 
-        Button morningTab = tabButton("Local");
-        Button nationalTab = tabButton("National");
-        Button weekendTab = tabButton("Features");
-        Button funniesTab = tabButton("Leisure");
-        tabs.addView(morningTab, new LinearLayout.LayoutParams(0, dp(58), 1));
-        tabs.addView(nationalTab, new LinearLayout.LayoutParams(0, dp(58), 1));
-        tabs.addView(weekendTab, new LinearLayout.LayoutParams(0, dp(58), 1));
-        tabs.addView(funniesTab, new LinearLayout.LayoutParams(0, dp(58), 1));
+        String[] labels={"Local","National","Features","Leisure"};
+        tabButtons=new TextView[labels.length];
+        for(int i=0;i<labels.length;i++){
+            final int page=i;
+            TextView tab=readerStyle.action(labels[i],()->switchPage(page));
+            tab.setTextSize(12);tab.setPadding(dp(2),0,dp(2),0);
+            tab.setSingleLine(true);
+            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(48),1);
+            if(i>0)p.leftMargin=dp(5);
+            tabs.addView(tab,p);tabButtons[i]=tab;
+        }
         root.addView(tabs);
-
-        morningTab.setOnClickListener(v -> switchPage(PAGE_MORNING));
-        nationalTab.setOnClickListener(v -> switchPage(PAGE_NATIONAL));
-        funniesTab.setOnClickListener(v -> switchPage(PAGE_FUNNIES));
-        weekendTab.setOnClickListener(v -> switchPage(PAGE_WEEKEND));
+        paintTabs();
 
         setContentView(root);
     }
 
-    private Button tabButton(String label) {
-        Button b = new Button(this);
-        b.setText(label);
-        b.setTextSize(11);
-        b.setAllCaps(false);
-        b.setGravity(Gravity.CENTER);
-        return b;
+    private void paintTabs(){
+        if(tabButtons==null)return;
+        for(int i=0;i<tabButtons.length;i++){
+            boolean active=i==currentPage;
+            tabButtons[i].setSelected(active);
+            tabButtons[i].setBackground(readerStyle.surface(active?readerStyle.ink:readerStyle.paper,8,true));
+            tabButtons[i].setTextColor(active?readerStyle.paper:readerStyle.ink);
+        }
     }
 
     private void switchPage(int page) {
+        if(settingsPage!=null)closeSettings();
+        if(page==currentPage)return;
         currentPage = page;
+        paintTabs();
+        title.setText(SECTION_NAMES[page]);
         web.setVisibility(page == PAGE_MORNING ? View.VISIBLE : View.GONE);
         national.view().setVisibility(page == PAGE_NATIONAL ? View.VISIBLE : View.GONE);
         funnies.view().setVisibility(page == PAGE_FUNNIES ? View.VISIBLE : View.GONE);
         weekend.view().setVisibility(page == PAGE_WEEKEND ? View.VISIBLE : View.GONE);
-        if (page == PAGE_MORNING) {
-            title.setText("LOCAL");
-            loadCached();
-            refresh(false);
-        } else if (page == PAGE_NATIONAL) {
-            title.setText("NATIONAL");
-            national.render();
-        } else if (page == PAGE_FUNNIES) {
-            title.setText("LEISURE");
-            funnies.render();
-        } else {
-            title.setText("FEATURES");
-            weekend.render();
-        }
+        if (page == PAGE_MORNING) { loadCached();refresh(false); }
+        else if (page == PAGE_NATIONAL) national.render();
+        else if (page == PAGE_FUNNIES) funnies.render();
+        else weekend.render();
     }
 
+    void openSettings(SettingsPage page,Runnable onClose){
+        if(settingsPage!=null)pages.removeView(settingsPage);
+        settingsPage=page.view;settingsClosed=onClose;
+        pages.addView(settingsPage,new FrameLayout.LayoutParams(-1,-1));
+        settingsPage.setClickable(true);
+        title.setText(SECTION_NAMES[currentPage]+" SETTINGS");
+        settingsButton.setText("Done");
+    }
+    boolean isSettingsOpen(){return settingsPage!=null;}
+    void closeSettings(){
+        if(settingsPage==null)return;
+        pages.removeView(settingsPage);settingsPage=null;
+        Runnable done=settingsClosed;settingsClosed=null;
+        title.setText(SECTION_NAMES[currentPage]);settingsButton.setText("Settings");
+        if(done!=null)done.run();
+    }
+    @Override public void onBackPressed(){
+        if(settingsPage!=null)closeSettings();else super.onBackPressed();
+    }
     private void showCurrentSettings() {
-        if (currentPage == PAGE_NATIONAL) {
-            national.showSettings();
-            return;
-        }
-        if (currentPage == PAGE_FUNNIES) {
-            funnies.showSettings();
-            return;
-        }
-        if (currentPage == PAGE_WEEKEND) {
-            weekend.showSettings();
-            return;
-        }
-        new AlertDialog.Builder(this)
-                .setTitle("Local settings")
-                .setItems(new String[]{"News, weather & appearance", "Rebuild current edition"}, (dialog, which) -> {
-                    if (which == 0) {
-                        startActivity(new Intent(this, SetupActivity.class).putExtra("edit", true));
-                    } else {
-                        refresh(true);
-                    }
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+        if(currentPage==PAGE_NATIONAL)national.showSettings();
+        else if(currentPage==PAGE_FUNNIES)funnies.showSettings();
+        else if(currentPage==PAGE_WEEKEND)weekend.showSettings();
+        else startActivityForResult(new Intent(this,SetupActivity.class).putExtra("edit",true),101);
+    }
+    @Override protected void onActivityResult(int request,int result,Intent data){
+        super.onActivityResult(request,result,data);
+        if(request==101&&result==RESULT_OK&&data!=null&&data.getBooleanExtra("update",false))refresh(true);
     }
 
     @Override protected void onResume() {
@@ -255,6 +261,7 @@ public class MainActivity extends Activity {
             recreate();
             return;
         }
+        if(settingsPage!=null)return;
         if (currentPage == PAGE_MORNING) { loadCached(); refresh(false); }
         else if (currentPage == PAGE_NATIONAL) national.render();
         else if (currentPage == PAGE_FUNNIES) funnies.render();
