@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - '.release/v0.8.1'
+      - '.release/v0.8.2'
       - '.github/workflows/publish-v060-test.yml'
 
 permissions:
@@ -16,8 +16,8 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-      VERSION: "0.8.1"
-      TAG: "v0.8.1"
+      VERSION: "0.8.2"
+      TAG: "v0.8.2"
 
     steps:
       - uses: actions/checkout@v5
@@ -43,8 +43,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'versionName = "0.8.1"' expanded/app/build.gradle.kts
-          grep -q 'versionCode = 22' expanded/app/build.gradle.kts
+          grep -q 'versionName = "0.8.2"' expanded/app/build.gradle.kts
+          grep -q 'versionCode = 23' expanded/app/build.gradle.kts
 
       - name: Restore existing Android signing key
         shell: bash
@@ -117,4 +117,4 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "NewPaper $VERSION" \
             --prerelease \
-            --notes "National news freshness fix: persistent published-story history, accurate refresh outcomes, article publication timestamps and retention of the last edition on feed failure. Signing certificate verified against v0.6.0-test.2."
+            --notes "National news freshness fix, 25 national source choices, hidden empty comic cards, themed navigation with selected tab, and unified per-section settings. Signing certificate verified against v0.6.0-test.2."
